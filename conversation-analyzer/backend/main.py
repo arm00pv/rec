@@ -1,6 +1,9 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, abort
 import datetime
 import os
+import subprocess
+import hmac
+import hashlib
 
 app = Flask(__name__, static_folder='../frontend')
 
@@ -83,6 +86,33 @@ def update_task(task_id):
                 return jsonify(task)
 
     return "Task not found", 404
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    # Get the signature from the request headers
+    signature = request.headers.get('X-Hub-Signature-256')
+    if not signature:
+        abort(403)
+
+    # Your GitHub webhook secret (set this as an environment variable for security)
+    secret = os.environ.get('GITHUB_WEBHOOK_SECRET').encode()
+    if not secret:
+        abort(500, "Webhook secret not configured on the server.")
+
+    # Calculate the expected signature
+    mac = hmac.new(secret, msg=request.data, digestmod=hashlib.sha256)
+    expected_signature = "sha256=" + mac.hexdigest()
+
+    # Verify the signature
+    if not hmac.compare_digest(signature, expected_signature):
+        abort(403)
+
+    # If the signature is valid, run the update script
+    if request.json['ref'] == 'refs/heads/main': # Or 'master'
+        subprocess.Popen(['./update.sh'])
+        return "Update process started", 202
+
+    return "No update needed", 200
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
