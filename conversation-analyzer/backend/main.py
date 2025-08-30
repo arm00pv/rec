@@ -1,53 +1,118 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory, abort
 import datetime
+import os
+import subprocess
+import hmac
+import hashlib
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='../frontend')
 
 # In-memory database for tasks
 tasks = []
 next_task_id = 1
 
+UPLOAD_FOLDER = 'uploads'
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
+
 @app.route("/")
-def hello_world():
-    # This could serve the frontend's index.html, but for now we leave it
-    return "Hello, World! This is the backend."
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/<path:path>')
+def serve_static(path):
+    return send_from_directory(app.static_folder, path)
+
+@app.route("/upload", methods=["POST"])
+def upload_file():
+    if 'audio' not in request.files:
+        return "No audio file part", 400
+    file = request.files['audio']
+    if file.filename == '':
+        return "No selected file", 400
+    if file:
+        filename = "recording.webm"
+        filepath = os.path.join(UPLOAD_FOLDER, filename)
+        file.save(filepath)
+        return "File uploaded successfully", 200
 
 # API to get all tasks
 @app.route("/api/tasks", methods=["GET"])
 def get_tasks():
-    sorted_tasks = sorted(tasks, key=lambda t: t['done'])
+    # Sort tasks by date (newest first), and then by done status
+    sorted_tasks = sorted(tasks, key=lambda d: d['date'], reverse=True)
+    for date_group in sorted_tasks:
+        date_group['tasks'].sort(key=lambda t: t['done'])
     return jsonify(sorted_tasks)
 
 # API for n8n to post new tasks
 @app.route("/api/tasks", methods=["POST"])
 def add_task():
     global next_task_id
-    if not request.json or "task" not in request.json:
+    if not request.json or "date" not in request.json or "tasks" not in request.json:
         return "Invalid request", 400
 
-    task_content = request.json["task"]
+    date_str = request.json["date"]
+    new_tasks_content = request.json["tasks"]
 
-    new_task = {
-        "id": next_task_id,
-        "content": task_content,
-        "timestamp": datetime.datetime.now().isoformat(),
-        "done": False
-    }
-    tasks.append(new_task)
-    next_task_id += 1
+    # Find if a group for this date already exists
+    date_group = next((g for g in tasks if g['date'] == date_str), None)
 
-    return jsonify(new_task), 201
+    if not date_group:
+        date_group = {"date": date_str, "tasks": []}
+        tasks.append(date_group)
+
+    for task_content in new_tasks_content:
+        new_task = {
+            "id": next_task_id,
+            "content": task_content,
+            "done": False
+        }
+        date_group['tasks'].append(new_task)
+        next_task_id += 1
+
+    return jsonify(date_group), 201
 
 # API to mark a task as complete
 @app.route("/api/tasks/<int:task_id>", methods=["PUT"])
 def update_task(task_id):
-    task = next((t for t in tasks if t["id"] == task_id), None)
-    if task is None:
-        return "Task not found", 404
-
     if not request.json or "done" not in request.json:
         return "Invalid request", 400
 
-    task["done"] = request.json["done"]
+    for date_group in tasks:
+        for task in date_group['tasks']:
+            if task['id'] == task_id:
+                task['done'] = request.json['done']
+                return jsonify(task)
 
-    return jsonify(task)
+    return "Task not found", 404
+
+@app.route("/webhook", methods=["POST"])
+def webhook():
+    # Get the signature from the request headers
+    signature = request.headers.get('X-Hub-Signature-256')
+    if not signature:
+        abort(403)
+
+    # Your GitHub webhook secret (set this as an environment variable for security)
+    secret = os.environ.get('GITHUB_WEBHOOK_SECRET').encode()
+    if not secret:
+        abort(500, "Webhook secret not configured on the server.")
+
+    # Calculate the expected signature
+    mac = hmac.new(secret, msg=request.data, digestmod=hashlib.sha256)
+    expected_signature = "sha256=" + mac.hexdigest()
+
+    # Verify the signature
+    if not hmac.compare_digest(signature, expected_signature):
+        abort(403)
+
+    # If the signature is valid, run the update script
+    if request.json['ref'] == 'refs/heads/main': # Or 'master'
+        subprocess.Popen(['./update.sh'])
+        return "Update process started", 202
+
+    return "No update needed", 200
+
+if __name__ == "__main__":
+    app.run(debug=True, port=5000)

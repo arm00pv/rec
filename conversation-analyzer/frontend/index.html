@@ -8,7 +8,21 @@
 </head>
 <body>
     <h1>Conversation Analyzer</h1>
-    <button id="record-button">Record</button>
+
+    <div class="tabs">
+      <button class="tab-button active" data-tab="record-tab">Record</button>
+      <button class="tab-button" data-tab="tasks-tab">Tasks</button>
+    </div>
+
+    <div id="record-tab" class="tab-content active">
+      <button id="record-button">Record</button>
+    </div>
+
+    <div id="tasks-tab" class="tab-content">
+      <h2>Tasks</h2>
+      <div id="tasks-container"></div>
+    </div>
+
     <script src="main.js"></script>
 </body>
 </html>
