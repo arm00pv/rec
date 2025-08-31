@@ -97,44 +97,58 @@ let mediaRecorder;
 let recordedChunks = [];
 
 recordButton.addEventListener('click', async () => {
+    console.log("Record button clicked. isRecording:", isRecording);
+
     if (!isRecording) {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
+        try {
+            console.log("Requesting microphone access...");
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            console.log("Microphone access granted.");
 
-        mediaRecorder.ondataavailable = (event) => {
-            if (event.data.size > 0) {
-                recordedChunks.push(event.data);
-            }
-        };
+            mediaRecorder = new MediaRecorder(stream);
 
-        mediaRecorder.onstop = () => {
-            const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-
-            const formData = new FormData();
-            formData.append("audio", blob, "recording.webm");
-
-            fetch("/upload", {
-                method: "POST",
-                body: formData
-            })
-            .then(response => {
-                if (response.ok) {
-                    console.log("File uploaded successfully");
-                } else {
-                    console.error("File upload failed");
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    console.log("Data available, pushing chunk.");
+                    recordedChunks.push(event.data);
                 }
-            })
-            .catch(error => {
-                console.error("Error uploading file:", error);
-            });
+            };
 
-            recordedChunks = [];
-        };
+            mediaRecorder.onstop = () => {
+                console.log("Recording stopped.");
+                const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                const formData = new FormData();
+                formData.append("audio", blob, "recording.webm");
 
-        mediaRecorder.start();
-        recordButton.textContent = 'Stop';
-        isRecording = true;
+                console.log("Uploading audio file...");
+                fetch("/upload", {
+                    method: "POST",
+                    body: formData
+                })
+                .then(response => {
+                    if (response.ok) {
+                        console.log("File uploaded successfully");
+                    } else {
+                        console.error("File upload failed with status:", response.status);
+                    }
+                })
+                .catch(error => {
+                    console.error("Error uploading file:", error);
+                });
+
+                recordedChunks = [];
+            };
+
+            mediaRecorder.start();
+            console.log("Recording started.");
+            recordButton.textContent = 'Stop';
+            isRecording = true;
+        } catch (error) {
+            console.error("Error accessing microphone:", error);
+            alert("Could not access the microphone. Please ensure you have granted permission and are using a secure connection (HTTPS).");
+        }
     } else {
+        console.log("Stopping recording...");
         mediaRecorder.stop();
         recordButton.textContent = 'Record';
         isRecording = false;
