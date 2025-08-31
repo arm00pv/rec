@@ -1,4 +1,6 @@
 from flask import Flask, request, jsonify, send_from_directory, abort
+from flask_sqlalchemy import SQLAlchemy
+from collections import defaultdict
 import datetime
 import os
 import subprocess
@@ -7,10 +9,34 @@ import hashlib
 
 app = Flask(__name__, static_folder='../frontend')
 
-# In-memory database for tasks
-tasks = []
-next_task_id = 1
+# --- Database Configuration ---
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'tasks.db')
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+db = SQLAlchemy(app)
 
+# --- Database Model ---
+class Task(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.String(200), nullable=False)
+    task_date = db.Column(db.String(20), nullable=False)
+    done = db.Column(db.Boolean, default=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "content": self.content,
+            "done": self.done
+        }
+
+# --- CLI Command to Init DB ---
+@app.cli.command("init-db")
+def init_db_command():
+    """Creates the database tables."""
+    db.create_all()
+    print("Initialized the database.")
+
+# --- Static File Serving ---
 UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
@@ -23,6 +49,7 @@ def index():
 def serve_static(path):
     return send_from_directory(app.static_folder, path)
 
+# --- API Endpoints ---
 @app.route("/upload", methods=["POST"])
 def upload_file():
     if 'audio' not in request.files:
@@ -36,83 +63,79 @@ def upload_file():
         file.save(filepath)
         return "File uploaded successfully", 200
 
-# API to get all tasks
 @app.route("/api/tasks", methods=["GET"])
 def get_tasks():
-    # Sort tasks by date (newest first), and then by done status
-    sorted_tasks = sorted(tasks, key=lambda d: d['date'], reverse=True)
-    for date_group in sorted_tasks:
-        date_group['tasks'].sort(key=lambda t: t['done'])
-    return jsonify(sorted_tasks)
+    tasks = Task.query.order_by(Task.task_date.desc(), Task.done.asc()).all()
 
-# API for n8n to post new tasks
+    grouped_tasks = defaultdict(list)
+    for task in tasks:
+        grouped_tasks[task.task_date].append(task.to_dict())
+
+    output = [
+        {"date": date, "tasks": tasks} for date, tasks in grouped_tasks.items()
+    ]
+    output.sort(key=lambda x: x['date'], reverse=True)
+
+    return jsonify(output)
+
 @app.route("/api/tasks", methods=["POST"])
 def add_task():
-    global next_task_id
     if not request.json or "date" not in request.json or "tasks" not in request.json:
         return "Invalid request", 400
 
     date_str = request.json["date"]
     new_tasks_content = request.json["tasks"]
 
-    # Find if a group for this date already exists
-    date_group = next((g for g in tasks if g['date'] == date_str), None)
-
-    if not date_group:
-        date_group = {"date": date_str, "tasks": []}
-        tasks.append(date_group)
-
+    added_tasks = []
     for task_content in new_tasks_content:
-        new_task = {
-            "id": next_task_id,
-            "content": task_content,
-            "done": False
-        }
-        date_group['tasks'].append(new_task)
-        next_task_id += 1
+        new_task = Task(content=task_content, task_date=date_str, done=False)
+        db.session.add(new_task)
+        added_tasks.append(new_task)
 
-    return jsonify(date_group), 201
+    db.session.commit()
 
-# API to mark a task as complete
+    return jsonify({
+        "date": date_str,
+        "tasks": [t.to_dict() for t in added_tasks]
+    }), 201
+
 @app.route("/api/tasks/<int:task_id>", methods=["PUT"])
 def update_task(task_id):
     if not request.json or "done" not in request.json:
         return "Invalid request", 400
 
-    for date_group in tasks:
-        for task in date_group['tasks']:
-            if task['id'] == task_id:
-                task['done'] = request.json['done']
-                return jsonify(task)
+    task = db.session.get(Task, task_id)
+    if task is None:
+        return "Task not found", 404
 
-    return "Task not found", 404
+    task.done = request.json['done']
+    db.session.commit()
 
+    return jsonify(task.to_dict())
+
+# --- Webhook Endpoint ---
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    # Get the signature from the request headers
     signature = request.headers.get('X-Hub-Signature-256')
     if not signature:
         abort(403)
 
-    # Your GitHub webhook secret (set this as an environment variable for security)
-    secret = os.environ.get('GITHUB_WEBHOOK_SECRET').encode()
+    secret = os.environ.get('GITHUB_WEBHOOK_SECRET', '').encode()
     if not secret:
         abort(500, "Webhook secret not configured on the server.")
 
-    # Calculate the expected signature
     mac = hmac.new(secret, msg=request.data, digestmod=hashlib.sha256)
     expected_signature = "sha256=" + mac.hexdigest()
 
-    # Verify the signature
     if not hmac.compare_digest(signature, expected_signature):
         abort(403)
 
-    # If the signature is valid, run the update script
-    if request.json['ref'] == 'refs/heads/main': # Or 'master'
+    if request.json.get('ref') == 'refs/heads/main':
         subprocess.Popen(['./update.sh'])
         return "Update process started", 202
 
     return "No update needed", 200
 
+# --- Main Execution ---
 if __name__ == "__main__":
     app.run(debug=True, port=5000)
