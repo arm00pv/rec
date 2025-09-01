@@ -101,14 +101,19 @@ def add_task():
 
 @app.route("/api/tasks/<int:task_id>", methods=["PUT"])
 def update_task(task_id):
-    if not request.json or "done" not in request.json:
+    if not request.json:
         return "Invalid request", 400
 
     task = db.session.get(Task, task_id)
     if task is None:
         return "Task not found", 404
 
-    task.done = request.json['done']
+    if 'done' in request.json:
+        task.done = request.json['done']
+
+    if 'content' in request.json:
+        task.content = request.json['content']
+
     db.session.commit()
 
     return jsonify(task.to_dict())
