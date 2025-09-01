@@ -26,11 +26,26 @@ document.addEventListener('DOMContentLoaded', () => {
             const isDone = event.target.checked;
             await updateTask(taskId, isDone);
             await fetchTasks();
+        } else if (event.target.classList.contains('delete-button')) {
+            const taskItem = event.target.closest('li');
+            const taskId = taskItem.dataset.taskId;
+            await deleteTask(taskId);
+            await fetchTasks();
         }
     });
 
     fetchTasks();
 });
+
+async function deleteTask(taskId) {
+    try {
+        await fetch(`/api/tasks/${taskId}`, {
+            method: 'DELETE',
+        });
+    } catch (error) {
+        console.error('Error deleting task:', error);
+    }
+}
 
 async function updateTask(taskId, isDone) {
     try {
@@ -82,8 +97,13 @@ function renderTasks(taskGroups) {
                 label.textContent = '✅ ' + label.textContent;
             }
 
+            const deleteButton = document.createElement('button');
+            deleteButton.textContent = '❌';
+            deleteButton.classList.add('delete-button');
+
             taskItem.prepend(checkbox);
             taskItem.appendChild(label);
+            taskItem.appendChild(deleteButton);
             taskList.appendChild(taskItem);
         });
         tasksContainer.appendChild(taskList);
