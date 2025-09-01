@@ -6,6 +6,7 @@ import os
 import subprocess
 import hmac
 import hashlib
+import requests
 
 app = Flask(__name__, static_folder='../frontend')
 
@@ -50,6 +51,17 @@ def serve_static(path):
     return send_from_directory(app.static_folder, path)
 
 # --- API Endpoints ---
+def trigger_n8n_workflow():
+    webhook_url = os.environ.get('N8N_WEBHOOK_URL')
+    if webhook_url:
+        try:
+            # You can send data if your n8n workflow expects it, e.g., the filename
+            payload = {'file': 'recording.webm', 'timestamp': datetime.datetime.now().isoformat()}
+            requests.post(webhook_url, json=payload, timeout=5)
+            print(f"Triggered n8n webhook at {webhook_url}")
+        except requests.exceptions.RequestException as e:
+            print(f"Error triggering n8n webhook: {e}")
+
 @app.route("/upload", methods=["POST"])
 def upload_file():
     if 'audio' not in request.files:
@@ -61,7 +73,11 @@ def upload_file():
         filename = "recording.webm"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
-        return "File uploaded successfully", 200
+
+        # Trigger the n8n workflow
+        trigger_n8n_workflow()
+
+        return "File uploaded successfully, processing started.", 200
 
 @app.route("/api/tasks", methods=["GET"])
 def get_tasks():
