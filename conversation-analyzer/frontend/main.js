@@ -27,15 +27,59 @@ document.addEventListener('DOMContentLoaded', () => {
         const taskId = taskItem.dataset.taskId;
 
         if (target.type === 'checkbox') {
-            await updateTask(taskId, target.checked);
+            await updateTask(taskId, { done: target.checked });
         } else if (target.classList.contains('delete-button')) {
             await deleteTask(taskId);
+            await fetchTasks();
         }
-        await fetchTasks();
+    });
+
+    tasksContainer.addEventListener('dblclick', (event) => {
+        const target = event.target;
+        if (target.tagName === 'LABEL') {
+            makeTaskEditable(target);
+        }
     });
 
     fetchTasks();
 });
+
+function makeTaskEditable(label) {
+    const taskItem = label.closest('li');
+    const originalText = label.textContent.replace('✅ ', '');
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = originalText;
+    input.classList.add('edit-input');
+
+    label.style.display = 'none';
+    taskItem.insertBefore(input, label);
+    input.focus();
+
+    const saveChanges = async () => {
+        const newContent = input.value.trim();
+        if (newContent && newContent !== originalText) {
+            const taskId = taskItem.dataset.taskId;
+            await updateTask(taskId, { content: newContent });
+            await fetchTasks();
+        } else {
+            label.style.display = '';
+            input.remove();
+        }
+    };
+
+    input.addEventListener('blur', saveChanges);
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            input.blur();
+        } else if (e.key === 'Escape') {
+            label.style.display = '';
+            input.remove();
+        }
+    });
+}
+
 
 // --- API Functions for Tasks ---
 async function deleteTask(taskId) {
@@ -46,12 +90,12 @@ async function deleteTask(taskId) {
     }
 }
 
-async function updateTask(taskId, isDone) {
+async function updateTask(taskId, payload) {
     try {
         await fetch(`/api/tasks/${taskId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ done: isDone }),
+            body: JSON.stringify(payload),
         });
     } catch (error) {
         console.error('Error updating task:', error);
