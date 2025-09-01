@@ -1,4 +1,5 @@
 document.addEventListener('DOMContentLoaded', () => {
+    // --- Tab Switching ---
     const tabs = document.querySelectorAll('.tab-button');
     const tabContents = document.querySelectorAll('.tab-content');
 
@@ -7,41 +8,39 @@ document.addEventListener('DOMContentLoaded', () => {
             tabs.forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
 
-            tabContents.forEach(content => {
-                content.classList.remove('active');
-            });
-
+            tabContents.forEach(content => content.classList.remove('active'));
             document.getElementById(tab.dataset.tab).classList.add('active');
+
             if (tab.dataset.tab === 'tasks-tab') {
                 fetchTasks();
             }
         });
     });
 
+    // --- Task Event Listeners ---
     const tasksContainer = document.getElementById('tasks-container');
     tasksContainer.addEventListener('click', async (event) => {
-        if (event.target.type === 'checkbox') {
-            const taskItem = event.target.closest('li');
-            const taskId = taskItem.dataset.taskId;
-            const isDone = event.target.checked;
-            await updateTask(taskId, isDone);
-            await fetchTasks();
-        } else if (event.target.classList.contains('delete-button')) {
-            const taskItem = event.target.closest('li');
-            const taskId = taskItem.dataset.taskId;
+        const target = event.target;
+        const taskItem = target.closest('li');
+        if (!taskItem) return;
+
+        const taskId = taskItem.dataset.taskId;
+
+        if (target.type === 'checkbox') {
+            await updateTask(taskId, target.checked);
+        } else if (target.classList.contains('delete-button')) {
             await deleteTask(taskId);
-            await fetchTasks();
         }
+        await fetchTasks();
     });
 
     fetchTasks();
 });
 
+// --- API Functions for Tasks ---
 async function deleteTask(taskId) {
     try {
-        await fetch(`/api/tasks/${taskId}`, {
-            method: 'DELETE',
-        });
+        await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
     } catch (error) {
         console.error('Error deleting task:', error);
     }
@@ -51,9 +50,7 @@ async function updateTask(taskId, isDone) {
     try {
         await fetch(`/api/tasks/${taskId}`, {
             method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ done: isDone }),
         });
     } catch (error) {
@@ -64,6 +61,7 @@ async function updateTask(taskId, isDone) {
 async function fetchTasks() {
     try {
         const response = await fetch('/api/tasks');
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const taskGroups = await response.json();
         renderTasks(taskGroups);
     } catch (error) {
@@ -71,9 +69,15 @@ async function fetchTasks() {
     }
 }
 
+// --- Rendering Functions ---
 function renderTasks(taskGroups) {
     const tasksContainer = document.getElementById('tasks-container');
     tasksContainer.innerHTML = '';
+
+    if (!taskGroups || taskGroups.length === 0) {
+        tasksContainer.innerHTML = '<p>No tasks yet. Record a conversation to get started!</p>';
+        return;
+    }
 
     taskGroups.forEach(group => {
         const dateTitle = document.createElement('h3');
@@ -110,57 +114,73 @@ function renderTasks(taskGroups) {
     });
 }
 
+
+// --- Recording Logic ---
 const recordButton = document.getElementById('record-button');
+const previewContainer = document.getElementById('preview-container');
+const audioPreview = document.getElementById('audio-preview');
+const processButton = document.getElementById('process-button');
+const discardButton = document.getElementById('discard-button');
 
 let isRecording = false;
 let mediaRecorder;
 let recordedChunks = [];
+let recordedBlob = null;
+
+function resetRecordingUI() {
+    recordButton.classList.remove('hidden');
+    previewContainer.classList.add('hidden');
+    recordedBlob = null;
+    recordedChunks = [];
+    audioPreview.src = '';
+}
+
+async function uploadAudio(blob) {
+    const formData = new FormData();
+    formData.append("audio", blob, "recording.webm");
+
+    console.log("Uploading audio file...");
+    try {
+        const response = await fetch("/upload", {
+            method: "POST",
+            body: formData
+        });
+        if (response.ok) {
+            console.log("File uploaded successfully");
+            alert("File uploaded successfully! Tasks will be generated shortly.");
+        } else {
+            console.error("File upload failed with status:", response.status);
+            alert("File upload failed.");
+        }
+    } catch (error) {
+        console.error("Error uploading file:", error);
+        alert("An error occurred while uploading the file.");
+    }
+    resetRecordingUI();
+}
 
 recordButton.addEventListener('click', async () => {
-    console.log("Record button clicked. isRecording:", isRecording);
-
     if (!isRecording) {
         try {
-            console.log("Requesting microphone access...");
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            console.log("Microphone access granted.");
-
             mediaRecorder = new MediaRecorder(stream);
 
             mediaRecorder.ondataavailable = (event) => {
                 if (event.data.size > 0) {
-                    console.log("Data available, pushing chunk.");
                     recordedChunks.push(event.data);
                 }
             };
 
             mediaRecorder.onstop = () => {
-                console.log("Recording stopped.");
-                const blob = new Blob(recordedChunks, { type: 'audio/webm' });
-                const formData = new FormData();
-                formData.append("audio", blob, "recording.webm");
+                recordedBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+                const audioURL = URL.createObjectURL(recordedBlob);
+                audioPreview.src = audioURL;
 
-                console.log("Uploading audio file...");
-                fetch("/upload", {
-                    method: "POST",
-                    body: formData
-                })
-                .then(response => {
-                    if (response.ok) {
-                        console.log("File uploaded successfully");
-                    } else {
-                        console.error("File upload failed with status:", response.status);
-                    }
-                })
-                .catch(error => {
-                    console.error("Error uploading file:", error);
-                });
-
-                recordedChunks = [];
+                recordButton.classList.add('hidden');
+                previewContainer.classList.remove('hidden');
             };
 
             mediaRecorder.start();
-            console.log("Recording started.");
             recordButton.textContent = 'Stop';
             isRecording = true;
         } catch (error) {
@@ -168,9 +188,16 @@ recordButton.addEventListener('click', async () => {
             alert("Could not access the microphone. Please ensure you have granted permission and are using a secure connection (HTTPS).");
         }
     } else {
-        console.log("Stopping recording...");
         mediaRecorder.stop();
         recordButton.textContent = 'Record';
         isRecording = false;
     }
 });
+
+processButton.addEventListener('click', () => {
+    if (recordedBlob) {
+        uploadAudio(recordedBlob);
+    }
+});
+
+discardButton.addEventListener('click', resetRecordingUI);
