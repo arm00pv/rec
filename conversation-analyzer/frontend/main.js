@@ -1,3 +1,5 @@
+const API_BASE_PATH = '/rec';
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Tab Switching ---
     const tabs = document.querySelectorAll('.tab-button');
@@ -30,8 +32,8 @@ document.addEventListener('DOMContentLoaded', () => {
             await updateTask(taskId, { done: target.checked });
         } else if (target.classList.contains('delete-button')) {
             await deleteTask(taskId);
-            await fetchTasks();
         }
+        await fetchTasks();
     });
 
     tasksContainer.addEventListener('dblclick', (event) => {
@@ -63,7 +65,6 @@ function makeTaskEditable(label) {
             const taskId = taskItem.dataset.taskId;
             await updateTask(taskId, { content: newContent });
         }
-        // Always fetch tasks to revert the UI cleanly
         await fetchTasks();
     };
 
@@ -82,7 +83,7 @@ function makeTaskEditable(label) {
 // --- API Functions for Tasks ---
 async function deleteTask(taskId) {
     try {
-        await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+        await fetch(`${API_BASE_PATH}/api/tasks/${taskId}`, { method: 'DELETE' });
     } catch (error) {
         console.error('Error deleting task:', error);
     }
@@ -90,7 +91,7 @@ async function deleteTask(taskId) {
 
 async function updateTask(taskId, payload) {
     try {
-        await fetch(`/api/tasks/${taskId}`, {
+        await fetch(`${API_BASE_PATH}/api/tasks/${taskId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -102,13 +103,13 @@ async function updateTask(taskId, payload) {
 
 async function fetchTasks() {
     try {
-        const response = await fetch('/api/tasks');
+        const response = await fetch(`${API_BASE_PATH}/api/tasks`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const taskGroups = await response.json();
         renderTasks(taskGroups);
     } catch (error) {
         console.error('Error fetching tasks:', error);
-        tasksContainer.innerHTML = '<p>Could not load tasks.</p>';
+        document.getElementById('tasks-container').innerHTML = '<p>Could not load tasks.</p>';
     }
 }
 
@@ -237,7 +238,7 @@ async function uploadAudio(blob) {
 
     console.log("Uploading audio file...");
     try {
-        const response = await fetch("/upload", {
+        const response = await fetch(`${API_BASE_PATH}/upload`, {
             method: "POST",
             body: formData
         });
