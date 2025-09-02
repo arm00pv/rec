@@ -38,7 +38,7 @@ def init_db_command():
     print("Initialized the database.")
 
 # --- Static File Serving ---
-UPLOAD_FOLDER = 'uploads'
+UPLOAD_FOLDER = os.path.join(basedir, 'uploads')
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
