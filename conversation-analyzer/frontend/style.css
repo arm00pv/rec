@@ -153,3 +153,28 @@ h1 {
     background-color: #f0f0f0;
     border-radius: 5px;
 }
+
+#progress-container {
+    margin-top: 2rem;
+    text-align: center;
+}
+
+.progress-bar {
+    width: 100%;
+    background-color: #e0e0e0;
+    border-radius: 5px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+
+.progress-bar-fill {
+    height: 20px;
+    width: 0%;
+    background-color: #4caf50;
+    transition: width 0.2s ease-in-out;
+}
+
+.progress-text {
+    font-size: 0.9rem;
+    color: #555;
+}

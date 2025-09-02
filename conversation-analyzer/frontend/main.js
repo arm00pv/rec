@@ -28,10 +28,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target.type === 'checkbox') {
             await updateTask(taskId, { done: target.checked });
+            await fetchTasks();
         } else if (target.classList.contains('delete-button')) {
             await deleteTask(taskId);
+            await fetchTasks();
         }
-        await fetchTasks();
     });
 
     tasksContainer.addEventListener('dblclick', (event) => {
@@ -165,6 +166,10 @@ const processButton = document.getElementById('process-button');
 const discardButton = document.getElementById('discard-button');
 const visualizer = document.getElementById('visualizer');
 const visualizerCtx = visualizer.getContext('2d');
+const progressContainer = document.getElementById('progress-container');
+const progressBarFill = document.querySelector('.progress-bar-fill');
+const progressText = document.querySelector('.progress-text');
+
 
 let isRecording = false;
 let mediaRecorder;
@@ -190,22 +195,16 @@ function visualize(stream) {
 
     function draw() {
         visualizerAnimationId = requestAnimationFrame(draw);
-
         analyser.getByteFrequencyData(dataArray);
-
         visualizerCtx.fillStyle = '#f0f0f0';
         visualizerCtx.fillRect(0, 0, visualizer.width, visualizer.height);
-
         const barWidth = (visualizer.width / bufferLength) * 2.5;
         let barHeight;
         let x = 0;
-
         for (let i = 0; i < bufferLength; i++) {
             barHeight = dataArray[i];
-
             visualizerCtx.fillStyle = `rgb(${barHeight + 100}, 50, 50)`;
             visualizerCtx.fillRect(x, visualizer.height - barHeight / 2, barWidth, barHeight / 2);
-
             x += barWidth + 1;
         }
     }
@@ -216,42 +215,60 @@ function stopVisualization() {
     if (visualizerAnimationId) {
         cancelAnimationFrame(visualizerAnimationId);
     }
-    visualizerCtx.clearRect(0, 0, visualizer.width, visualizer.height);
+    if(visualizerCtx) {
+        visualizerCtx.clearRect(0, 0, visualizer.width, visualizer.height);
+    }
     visualizer.classList.add('hidden');
 }
 
 function resetRecordingUI() {
     recordButton.classList.remove('hidden');
     previewContainer.classList.add('hidden');
+    progressContainer.classList.add('hidden');
     stopVisualization();
 
     recordedBlob = null;
     recordedChunks = [];
     audioPreview.src = '';
+    progressBarFill.style.width = '0%';
+    progressText.textContent = '0%';
 }
 
-async function uploadAudio(blob) {
+function uploadAudio(blob) {
     const formData = new FormData();
     formData.append("audio", blob, "recording.webm");
 
-    console.log("Uploading audio file...");
-    try {
-        const response = await fetch("/upload", {
-            method: "POST",
-            body: formData
-        });
-        if (response.ok) {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", "/upload", true);
+
+    xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+            const percentComplete = Math.round((event.loaded / event.total) * 100);
+            progressBarFill.style.width = percentComplete + '%';
+            progressText.textContent = percentComplete + '%';
+        }
+    };
+
+    xhr.onload = () => {
+        if (xhr.status === 200) {
             console.log("File uploaded successfully");
             alert("File uploaded successfully! Tasks will be generated shortly.");
         } else {
-            console.error("File upload failed with status:", response.status);
-            alert("File upload failed.");
+            console.error("File upload failed with status:", xhr.status);
+            alert(`File upload failed. Server responded with status ${xhr.status}.`);
         }
-    } catch (error) {
-        console.error("Error uploading file:", error);
+        resetRecordingUI();
+    };
+
+    xhr.onerror = () => {
+        console.error("Error uploading file.");
         alert("An error occurred while uploading the file.");
-    }
-    resetRecordingUI();
+        resetRecordingUI();
+    };
+
+    previewContainer.classList.add('hidden');
+    progressContainer.classList.remove('hidden');
+    xhr.send(formData);
 }
 
 recordButton.addEventListener('click', async () => {
