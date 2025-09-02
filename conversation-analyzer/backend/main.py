@@ -11,8 +11,7 @@ import requests
 app = Flask(__name__, static_folder='../frontend')
 
 # --- Database Configuration ---
-basedir = os.path.abspath(os.path.dirname(__file__))
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'tasks.db')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/tasks.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -38,7 +37,7 @@ def init_db_command():
     print("Initialized the database.")
 
 # --- Static File Serving ---
-UPLOAD_FOLDER = os.path.join(basedir, 'uploads')
+UPLOAD_FOLDER = '/tmp/uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
