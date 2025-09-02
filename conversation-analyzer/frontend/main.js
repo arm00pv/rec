@@ -62,11 +62,9 @@ function makeTaskEditable(label) {
         if (newContent && newContent !== originalText) {
             const taskId = taskItem.dataset.taskId;
             await updateTask(taskId, { content: newContent });
-            await fetchTasks();
-        } else {
-            label.style.display = '';
-            input.remove();
         }
+        // Always fetch tasks to revert the UI cleanly
+        await fetchTasks();
     };
 
     input.addEventListener('blur', saveChanges);
@@ -110,6 +108,7 @@ async function fetchTasks() {
         renderTasks(taskGroups);
     } catch (error) {
         console.error('Error fetching tasks:', error);
+        tasksContainer.innerHTML = '<p>Could not load tasks.</p>';
     }
 }
 
@@ -165,15 +164,68 @@ const previewContainer = document.getElementById('preview-container');
 const audioPreview = document.getElementById('audio-preview');
 const processButton = document.getElementById('process-button');
 const discardButton = document.getElementById('discard-button');
+const visualizer = document.getElementById('visualizer');
+const visualizerCtx = visualizer.getContext('2d');
 
 let isRecording = false;
 let mediaRecorder;
 let recordedChunks = [];
 let recordedBlob = null;
+let audioContext;
+let analyser;
+let visualizerAnimationId;
+
+function visualize(stream) {
+    if (!audioContext) {
+        audioContext = new AudioContext();
+    }
+    const source = audioContext.createMediaStreamSource(stream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 256;
+    const bufferLength = analyser.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    source.connect(analyser);
+
+    visualizerCtx.clearRect(0, 0, visualizer.width, visualizer.height);
+
+    function draw() {
+        visualizerAnimationId = requestAnimationFrame(draw);
+
+        analyser.getByteFrequencyData(dataArray);
+
+        visualizerCtx.fillStyle = '#f0f0f0';
+        visualizerCtx.fillRect(0, 0, visualizer.width, visualizer.height);
+
+        const barWidth = (visualizer.width / bufferLength) * 2.5;
+        let barHeight;
+        let x = 0;
+
+        for (let i = 0; i < bufferLength; i++) {
+            barHeight = dataArray[i];
+
+            visualizerCtx.fillStyle = `rgb(${barHeight + 100}, 50, 50)`;
+            visualizerCtx.fillRect(x, visualizer.height - barHeight / 2, barWidth, barHeight / 2);
+
+            x += barWidth + 1;
+        }
+    }
+    draw();
+}
+
+function stopVisualization() {
+    if (visualizerAnimationId) {
+        cancelAnimationFrame(visualizerAnimationId);
+    }
+    visualizerCtx.clearRect(0, 0, visualizer.width, visualizer.height);
+    visualizer.classList.add('hidden');
+}
 
 function resetRecordingUI() {
     recordButton.classList.remove('hidden');
     previewContainer.classList.add('hidden');
+    stopVisualization();
+
     recordedBlob = null;
     recordedChunks = [];
     audioPreview.src = '';
@@ -207,6 +259,9 @@ recordButton.addEventListener('click', async () => {
     if (!isRecording) {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            visualizer.classList.remove('hidden');
+            visualize(stream);
+
             mediaRecorder = new MediaRecorder(stream);
 
             mediaRecorder.ondataavailable = (event) => {
@@ -222,6 +277,7 @@ recordButton.addEventListener('click', async () => {
 
                 recordButton.classList.add('hidden');
                 previewContainer.classList.remove('hidden');
+                stopVisualization();
             };
 
             mediaRecorder.start();
