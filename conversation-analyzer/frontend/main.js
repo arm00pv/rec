@@ -1,5 +1,3 @@
-const API_BASE_PATH = '/rec';
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- Tab Switching ---
     const tabs = document.querySelectorAll('.tab-button');
@@ -83,7 +81,7 @@ function makeTaskEditable(label) {
 // --- API Functions for Tasks ---
 async function deleteTask(taskId) {
     try {
-        await fetch(`${API_BASE_PATH}/api/tasks/${taskId}`, { method: 'DELETE' });
+        await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
     } catch (error) {
         console.error('Error deleting task:', error);
     }
@@ -91,7 +89,7 @@ async function deleteTask(taskId) {
 
 async function updateTask(taskId, payload) {
     try {
-        await fetch(`${API_BASE_PATH}/api/tasks/${taskId}`, {
+        await fetch(`/api/tasks/${taskId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -103,7 +101,7 @@ async function updateTask(taskId, payload) {
 
 async function fetchTasks() {
     try {
-        const response = await fetch(`${API_BASE_PATH}/api/tasks`);
+        const response = await fetch('/api/tasks');
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const taskGroups = await response.json();
         renderTasks(taskGroups);
@@ -238,7 +236,7 @@ async function uploadAudio(blob) {
 
     console.log("Uploading audio file...");
     try {
-        const response = await fetch(`${API_BASE_PATH}/upload`, {
+        const response = await fetch("/upload", {
             method: "POST",
             body: formData
         });
