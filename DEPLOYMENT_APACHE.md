@@ -60,7 +60,7 @@ sudo apt-get install -y git apache2 python3-pip python3-venv build-essential pyt
 
 4.  **Create the WSGI Entry Point File:** This file is essential for Gunicorn to find your application.
     ```bash
-    echo "from main import app" > wsgi.py
+    echo "from main import app" | sudo tee wsgi.py
     ```
 
 5.  **Initialize the Database:**
