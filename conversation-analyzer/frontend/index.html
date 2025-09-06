@@ -4,11 +4,41 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conversation Analyzer</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="/rec/conversation-analyzer/frontend/style.css">
 </head>
 <body>
     <h1>Conversation Analyzer</h1>
-    <button id="record-button">Record</button>
-    <script src="main.js"></script>
+
+    <div class="tabs">
+      <button class="tab-button active" data-tab="record-tab">Record</button>
+      <button class="tab-button" data-tab="tasks-tab">Tasks</button>
+    </div>
+
+    <div id="record-tab" class="tab-content active">
+      <canvas id="visualizer" class="hidden" width="500" height="100"></canvas>
+      <button id="record-button">Record</button>
+      <div id="preview-container" class="hidden">
+        <h3>Preview Recording</h3>
+        <audio id="audio-preview" controls></audio>
+        <div class="preview-buttons">
+            <button id="process-button">Process</button>
+            <button id="discard-button">Discard</button>
+        </div>
+      </div>
+      <div id="progress-container" class="hidden">
+        <p>Uploading...</p>
+        <div class="progress-bar">
+            <div class="progress-bar-fill"></div>
+        </div>
+        <span class="progress-text">0%</span>
+      </div>
+    </div>
+
+    <div id="tasks-tab" class="tab-content">
+      <h2>Tasks</h2>
+      <div id="tasks-container"></div>
+    </div>
+
+    <script src="/rec/conversation-analyzer/frontend/main.js"></script>
 </body>
 </html>
