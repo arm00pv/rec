@@ -65,7 +65,7 @@ sudo apt-get install -y git apache2 python3-pip python3-venv build-essential pyt
 
 5.  **Initialize the Database:**
     ```bash
-    # Make sure your venv is still active
+    # Make sure your venv is still active. Run this command WITHOUT sudo.
     flask init-db
     ```
 
