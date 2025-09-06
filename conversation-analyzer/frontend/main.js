@@ -1,3 +1,5 @@
+const API_BASE_PATH = '/rec'; // Define the base path for the deployment subdirectory
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- Tab Switching ---
     const tabs = document.querySelectorAll('.tab-button');
@@ -28,11 +30,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target.type === 'checkbox') {
             await updateTask(taskId, { done: target.checked });
-            await fetchTasks();
         } else if (target.classList.contains('delete-button')) {
             await deleteTask(taskId);
-            await fetchTasks();
         }
+        await fetchTasks();
     });
 
     tasksContainer.addEventListener('dblclick', (event) => {
@@ -82,7 +83,7 @@ function makeTaskEditable(label) {
 // --- API Functions for Tasks ---
 async function deleteTask(taskId) {
     try {
-        await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+        await fetch(`${API_BASE_PATH}/api/tasks/${taskId}`, { method: 'DELETE' });
     } catch (error) {
         console.error('Error deleting task:', error);
     }
@@ -90,7 +91,7 @@ async function deleteTask(taskId) {
 
 async function updateTask(taskId, payload) {
     try {
-        await fetch(`/api/tasks/${taskId}`, {
+        await fetch(`${API_BASE_PATH}/api/tasks/${taskId}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload),
@@ -102,7 +103,7 @@ async function updateTask(taskId, payload) {
 
 async function fetchTasks() {
     try {
-        const response = await fetch('/api/tasks');
+        const response = await fetch(`${API_BASE_PATH}/api/tasks`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const taskGroups = await response.json();
         renderTasks(taskGroups);
@@ -239,7 +240,7 @@ function uploadAudio(blob) {
     formData.append("audio", blob, "recording.webm");
 
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", "/upload", true);
+    xhr.open("POST", `${API_BASE_PATH}/upload`, true);
 
     xhr.upload.onprogress = (event) => {
         if (event.lengthComputable) {
