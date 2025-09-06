@@ -1,91 +1,25 @@
-# Definitive Deployment Guide: Conversation Analyzer (Apache on Ubuntu)
+# Guide: Integrating with an Existing Apache Site
 
-This guide provides the complete, tested process for deploying the Conversation Analyzer on a fresh Ubuntu server. It incorporates all the fixes and best practices discovered during our troubleshooting sessions. Following these steps in order on a clean server should result in a successful deployment.
+This guide provides the definitive instructions for integrating the Conversation Analyzer into an existing website running on Apache. It assumes you are adding the application to a subdirectory.
 
-This guide assumes you have:
-*   A clean Ubuntu server (e.g., a new Digital Ocean droplet).
-*   A user with `sudo` privileges (this guide uses `zixen` as an example).
-*   A domain name (e.g., `zapp.sytes.net`) pointing to your server's IP address.
+### **Prerequisites**
 
----
-
-### **Step 1: Initial Server Preparation**
-
-Connect to your server and install all necessary system packages from the start. This ensures all build tools and libraries are available.
-
-```bash
-# SSH into your server (replace with your user/domain)
-ssh zixen@zapp.sytes.net
-
-# Update package lists and install all required packages
-sudo apt-get update && sudo apt-get upgrade -y
-sudo apt-get install -y git apache2 python3-pip python3-venv build-essential python3-dev libsqlite3-dev
-```
+*   A server with Apache already running and serving your main website (e.g., at `zapp.sytes.net`).
+*   The Conversation Analyzer code is located on your server (e.g., at `/var/www/webhost/rec`).
+*   You have `sudo` privileges.
 
 ---
 
-### **Step 2: Get and Prepare the Application Code**
+### **Step 1: Ensure Backend Service is Correct**
 
-1.  **Clone the Repository:** Clone the application code from your GitHub repository into the `/var/www/` directory.
-    ```bash
-    # (Replace with your repository URL)
-    sudo git clone https://github.com/your-username/your-repo.git /var/www/webhost
-    ```
+First, we need to ensure the `systemd` service that runs the application backend is configured correctly.
 
-2.  **Set Correct Ownership:** Change the ownership of all the project files to your user (`zixen`) and the web server's group (`www-data`). This is critical for avoiding permission errors.
-    ```bash
-    sudo chown -R zixen:www-data /var/www/webhost
-    ```
-
----
-
-### **Step 3: Set Up the Python Backend**
-
-1.  **Navigate to the Backend Directory:**
-    ```bash
-    cd /var/www/webhost/rec/conversation-analyzer/backend
-    ```
-
-2.  **Create the Virtual Environment:**
-    ```bash
-    python3 -m venv venv
-    ```
-
-3.  **Activate the Virtual Environment and Install Dependencies:**
-    ```bash
-    source venv/bin/activate
-    pip install -r requirements.txt
-    pip install gunicorn
-    ```
-
-4.  **Create the WSGI Entry Point File:** This file is essential for Gunicorn to find your application.
-    ```bash
-    echo "from main import app" > wsgi.py
-    ```
-
-5.  **Initialize the Database:**
-    ```bash
-    # Make sure your venv is still active
-    flask init-db
-    ```
-
-6.  **Deactivate the Virtual Environment** for now.
-    ```bash
-    deactivate
-    ```
-
----
-
-### **Step 4: Create and Configure the `systemd` Service**
-
-This service will run Gunicorn and your Flask app in the background.
-
-1.  **Create the Service File:**
+1.  **Open the service file for editing:**
     ```bash
     sudo nano /etc/systemd/system/conversation-analyzer.service
     ```
 
-2.  **Paste the following complete and corrected configuration.** This version uses a reliable TCP socket on port 8001.
+2.  **Ensure the file has the following content.** This version is the most reliable one we found. It uses a TCP port, which avoids many common permission issues. Make sure the `User` and all paths are correct for your system.
 
     ```ini
     [Unit]
@@ -98,73 +32,58 @@ This service will run Gunicorn and your Flask app in the background.
     WorkingDirectory=/var/www/webhost/rec/conversation-analyzer/backend
     Environment="PATH=/var/www/webhost/rec/conversation-analyzer/backend/venv/bin"
     # Add your n8n webhook URL here when you are ready for that step
-    # Environment="N8N_WEBHOOK_URL=https://your-n8n-url/..."
+    # Environment="N8N_WEBHOOK_URL=..."
     ExecStart=/var/www/webhost/rec/conversation-analyzer/backend/venv/bin/gunicorn --workers 3 --bind 127.0.0.1:8001 wsgi:app
 
     [Install]
     WantedBy=multi-user.target
     ```
 
+3.  **Reload and restart the service** to apply any changes:
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl restart conversation-analyzer.service
+    ```
+
 ---
 
-### **Step 5: Configure Apache as a Reverse Proxy**
+### **Step 2: Add Proxy Rules to Your Existing Apache Site**
 
-This is the final configuration for Apache. It will cleanly forward web traffic to your application.
+This is the most critical step. We need to tell your main website's Apache configuration how to find our application's API.
 
-1.  **Enable Required Apache Modules:**
+1.  **Find and Edit Your Active Apache Configuration:**
+    Based on our debugging, the correct file for your HTTPS site is:
+    ```bash
+    sudo nano /etc/apache2/sites-enabled/webhost-le-ssl.conf
+    ```
+
+2.  **Add the Proxy Directives:**
+    Inside that file, find the `<VirtualHost *:443>` block. Add the following lines inside this block. A good place is after the `ServerName` or `DocumentRoot` lines.
+
+    ```apache
+    # --- Configuration for Conversation Analyzer App ---
+    # Forward API and Upload requests to the Gunicorn service
+    ProxyPreserveHost On
+    ProxyPass /rec/api/ http://127.0.0.1:8001/api/
+    ProxyPassReverse /rec/api/ http://127.0.0.1:8001/api/
+    ProxyPass /rec/upload http://127.0.0.1:8001/upload
+    ProxyPassReverse /rec/upload http://127.0.0.1:8001/upload
+    ```
+    **Note:** We are *not* proxying the root (`/`) because you have an existing site. We are only proxying the specific paths that our application needs. The frontend files themselves will be served by your existing Apache configuration because they are located within your `DocumentRoot`.
+
+3.  **Enable Required Apache Modules:**
+    Ensure the proxy modules are enabled (it's safe to run these commands again).
     ```bash
     sudo a2enmod proxy
     sudo a2enmod proxy_http
     ```
 
-2.  **Disable the Default Apache Site:** This is very important to prevent conflicts.
-    ```bash
-    sudo a2dissite 000-default.conf
-    ```
-
-3.  **Create a New Apache Configuration File:**
-    ```bash
-    sudo nano /etc/apache2/sites-available/zapp.conf
-    ```
-
-4.  **Paste the following simple and robust configuration.**
-    ```apache
-    <VirtualHost *:80>
-        ServerName zapp.sytes.net
-
-        ProxyPreserveHost On
-        ProxyPass / http://127.0.0.1:8001/
-        ProxyPassReverse / http://127.0.0.1:8001/
-
-        ErrorLog ${APACHE_LOG_DIR}/error.log
-        CustomLog ${APACHE_LOG_DIR}/access.log combined
-    </VirtualHost>
-    ```
-
-5.  **Enable Your New Site:**
-    ```bash
-    sudo a2ensite zapp.conf
-    ```
-
----
-
-### **Step 6: Finalize and Start Services**
-
-1.  **Reload `systemd` and Start Your App:**
-    ```bash
-    sudo systemctl daemon-reload
-    sudo systemctl start conversation-analyzer.service
-    sudo systemctl enable conversation-analyzer.service
-    ```
-
-2.  **Restart Apache:**
+4.  **Restart Apache:**
+    Save the configuration file, then restart Apache to apply the final changes.
     ```bash
     sudo systemctl restart apache2
     ```
 
-3.  **Check Firewall:** Ensure your firewall allows web traffic.
-    ```bash
-    sudo ufw allow 'Apache Full'
-    ```
+---
 
-Your application should now be fully functional at `http://zapp.sytes.net`. Congratulations!
+After completing these steps, the application should now be fully functional, living alongside your main website. The 404 errors on upload should be resolved.
