@@ -11,7 +11,9 @@ import requests
 app = Flask(__name__, static_folder='../frontend')
 
 # --- Database Configuration ---
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/tasks.db'
+# Use a permanent location inside the backend directory.
+basedir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///' + os.path.join(basedir, 'tasks.db')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
@@ -36,8 +38,9 @@ def init_db_command():
     db.create_all()
     print("Initialized the database.")
 
-# --- Static File Serving ---
-UPLOAD_FOLDER = '/tmp/uploads'
+# --- Static File Serving & Uploads ---
+# Use a permanent location inside the backend directory.
+UPLOAD_FOLDER = os.path.join(basedir, 'uploads')
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
@@ -54,7 +57,6 @@ def trigger_n8n_workflow():
     webhook_url = os.environ.get('N8N_WEBHOOK_URL')
     if webhook_url:
         try:
-            # You can send data if your n8n workflow expects it, e.g., the filename
             payload = {'file': 'recording.webm', 'timestamp': datetime.datetime.now().isoformat()}
             requests.post(webhook_url, json=payload, timeout=5)
             print(f"Triggered n8n webhook at {webhook_url}")
@@ -72,10 +74,7 @@ def upload_file():
         filename = "recording.webm"
         filepath = os.path.join(UPLOAD_FOLDER, filename)
         file.save(filepath)
-
-        # Trigger the n8n workflow
         trigger_n8n_workflow()
-
         return "File uploaded successfully, processing started.", 200
 
 @app.route("/api/tasks", methods=["GET"])
