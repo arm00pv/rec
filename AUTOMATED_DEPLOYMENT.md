@@ -1,191 +1,152 @@
-# Automated Deployment with GitHub Webhooks
+# Guide: Setting Up Automated Deployments with GitHub Webhooks
 
-This guide explains how to set up a simple continuous deployment (CD) pipeline for your Conversation Analyzer application. When you push new changes to your GitHub repository, your Digital Ocean server will automatically update and restart the application.
+This guide explains how to configure a GitHub webhook to automatically deploy the latest version of the Conversation Analyzer application to your server whenever you push changes to the `main` branch.
 
-This guide assumes you have already completed the initial deployment as described in `DEPLOYMENT_APACHE.md`.
+### How It Works
 
-## How It Works
-
-1.  **GitHub Webhook:** You will configure a webhook in your GitHub repository. Whenever you `push` code to your `main` branch, GitHub will send a notification (an HTTP POST request) to a special URL on your server.
-2.  **Webhook Listener:** A new endpoint in your Flask application will listen for this notification at the special URL.
-3.  **Update Script:** When the listener receives a valid notification, it will execute a shell script on your server.
-4.  **Deployment:** The script will pull the latest code from your repository, copy the frontend files, and restart the Gunicorn service.
-
----
-
-### **Step 1: Create the Update Script**
-
-First, let's create a script that will handle the deployment logic.
-
-SSH into your server and navigate to your project's `backend` directory:
-```bash
-ssh your_username@zapp.sytes.net
-cd ~/your-repo/conversation-analyzer/backend
-```
-
-Create a new file named `update.sh`:
-```bash
-nano update.sh
-```
-
-Paste the following code into the file. This script will be run by the `your_username` user, so it uses `sudo` for commands that require root privileges.
-
-```bash
-#!/bin/bash
-
-# Navigate to the repository directory
-cd ~/your-repo
-
-# Pull the latest changes from the main branch
-git pull origin main
-
-# Copy the new frontend files to the web server directory
-sudo cp -r ~/your-repo/conversation-analyzer/frontend/* /var/www/rec/
-
-# Restart the Gunicorn service to apply backend changes
-sudo systemctl restart conversation-analyzer
-
-echo "Deployment completed successfully!"
-```
-
-Save the file and make it executable:
-```bash
-chmod +x update.sh
-```
-
-You will also need to allow your user to run `sudo` commands without a password for the specific commands in the script. This is necessary for the script to run automatically.
-
-Run `sudo visudo` and add the following lines at the end of the file, replacing `your_username` with your username:
-```
-your_username ALL=(ALL) NOPASSWD: /bin/cp -r /home/your_username/your-repo/conversation-analyzer/frontend/* /var/www/rec/
-your_username ALL=(ALL) NOPASSWD: /bin/systemctl restart conversation-analyzer
-```
-**Warning:** This is a security risk. A more secure approach would be to use a dedicated deployment user with more restricted permissions. For this simple setup, this is sufficient.
+1.  **GitHub Webhook:** You will configure your GitHub repository to send a POST request to a special `/webhook` endpoint on your server every time a `git push` occurs.
+2.  **Backend Webhook Listener:** The Flask application has a `/webhook` endpoint that listens for these incoming requests.
+3.  **Security:** The endpoint verifies that the request is genuinely from GitHub by checking a cryptographic signature (HMAC-SHA256) using a shared secret.
+4.  **Deployment Script:** If the request is valid and the push was to the `main` branch, the application executes a shell script (`update.sh`).
+5.  **`update.sh`:** This script pulls the latest code from GitHub, installs any new dependencies, and restarts the application service.
 
 ---
 
-### **Step 2: Add the Webhook Endpoint to the Backend**
+### Step 1: Create the Deployment Script (`update.sh`)
 
-Now, we'll add a `/webhook` endpoint to your Flask application in `main.py`. This endpoint will listen for POST requests from GitHub.
+First, we need the script that will perform the actual update.
 
-Edit your `backend/main.py` file:
-```bash
-nano main.py
-```
+1.  **Create the file:**
+    Make sure you are in the `conversation-analyzer/backend` directory.
+    ```bash
+    nano update.sh
+    ```
 
-Add the following code to the end of the file, before the `if __name__ == "__main__":` block. You'll need to import `subprocess` and `os` at the top of the file.
+2.  **Add the script content:**
+    This script automates the entire deployment process.
+    ```bash
+    #!/bin/bash
 
-```python
-import subprocess
-import os
-from flask import request, abort
-import hmac
-import hashlib
+    # Exit immediately if a command exits with a non-zero status.
+    set -e
 
-# ... (keep existing imports)
+    # Define the project directory
+    PROJECT_DIR="/var/www/zapp.sytes.net"
 
-# ... (keep existing Flask app and routes)
+    echo "--- Starting deployment script ---"
 
-@app.route("/webhook", methods=["POST"])
-def webhook():
-    # Get the signature from the request headers
-    signature = request.headers.get('X-Hub-Signature-256')
-    if not signature:
-        abort(403)
+    # Navigate to the project directory
+    cd "$PROJECT_DIR" || { echo "Failed to cd into $PROJECT_DIR"; exit 1; }
 
-    # Your GitHub webhook secret (set this as an environment variable for security)
-    secret = os.environ.get('GITHUB_WEBHOOK_SECRET').encode()
-    if not secret:
-        abort(500, "Webhook secret not configured on the server.")
+    # Deactivate virtual environment if one is active, silencing errors
+    deactivate >/dev/null 2>&1 || true
 
-    # Calculate the expected signature
-    mac = hmac.new(secret, msg=request.data, digestmod=hashlib.sha256)
-    expected_signature = "sha256=" + mac.hexdigest()
+    # Ensure the git repository is clean before pulling
+    git reset --hard HEAD
 
-    # Verify the signature
-    if not hmac.compare_digest(signature, expected_signature):
-        abort(403)
+    # Pull the latest changes from the main branch
+    echo "--- Pulling latest changes from GitHub ---"
+    git pull origin main
 
-    # If the signature is valid, run the update script
-    if request.json['ref'] == 'refs/heads/main': # Or 'master'
-        subprocess.Popen(['./update.sh'])
-        return "Update process started", 202
+    # Activate the virtual environment
+    echo "--- Activating Python virtual environment ---"
+    source "conversation-analyzer/venv/bin/activate"
 
-    return "No update needed", 200
-```
-You will also need to add `import hmac`, `import hashlib`, `import subprocess` at the top of the file.
+    # Install/update dependencies
+    echo "--- Installing/updating Python packages ---"
+    pip install -r "conversation-analyzer/backend/requirements.txt"
 
-For this to work, you need to set the `GITHUB_WEBHOOK_SECRET` environment variable. You can do this in your `systemd` service file. Edit `/etc/systemd/system/conversation-analyzer.service` and add an `Environment` line:
+    # Optional: Run database migrations or initializations if needed
+    # echo "--- Initializing database (if applicable) ---"
+    # export FLASK_APP=conversation-analyzer/backend/main.py
+    # flask init-db
 
-```ini
-[Service]
-# ... (other settings)
-Environment="GITHUB_WEBHOOK_SECRET=your_very_secret_string"
-```
-Replace `your_very_secret_string` with a long, random string. You will use this same secret in your GitHub webhook settings. After editing the service file, reload the systemd daemon and restart your service:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart conversation-analyzer
-```
+    # Restart the application service to apply changes
+    echo "--- Restarting application service ---"
+    sudo systemctl restart conversation-analyzer
+
+    echo "--- Deployment finished successfully ---"
+    ```
+
+3.  **Make the script executable:**
+    This is a critical step. The script must have execute permissions.
+    ```bash
+    chmod +x update.sh
+    ```
 
 ---
 
-### **Step 3: Configure the Apache Reverse Proxy**
+### Step 2: Configure the Webhook Secret on Your Server
 
-You need to add a new `Location` block to your Apache configuration to forward webhook requests to your backend.
+The webhook needs a secret key to ensure security.
 
-Edit your Apache config file:
-```bash
-sudo nano /etc/apache2/sites-available/conversation-analyzer.conf
-```
+1.  **Generate a Secret:**
+    You can generate a long, random string for your secret. A good way to do this is:
+    ```bash
+    openssl rand -hex 32
+    ```
+    Copy the generated string.
 
-Add the following `Location` block inside your `<VirtualHost>` block:
-```apache
-<Location /webhook>
-    ProxyPass unix:/home/your_username/your-repo/conversation-analyzer/backend/conversation-analyzer.sock|http://localhost/webhook
-    ProxyPassReverse unix:/home/your_username/your-repo/conversation-analyzer/backend/conversation-analyzer.sock|http://localhost/webhook
-</Location>
-```
-Your full config should look something like this:
-```apache
-<VirtualHost *:80>
-    ServerName zapp.sytes.net
+2.  **Add the Secret to the `systemd` Service:**
+    Edit the service file to add the secret as an environment variable.
+    ```bash
+    sudo nano /etc/systemd/system/conversation-analyzer.service
+    ```
 
-    DocumentRoot /var/www/rec
-    # ...
+3.  **Add the `Environment` variable:**
+    Add a new line for `GITHUB_WEBHOOK_SECRET`.
+    ```ini
+    [Service]
+    User=your_user
+    Group=www-data
+    # ... other settings ...
+    Environment="GITHUB_WEBHOOK_SECRET=your_super_secret_string_here"
+    # You can have multiple Environment lines
+    Environment="N8N_WEBHOOK_URL=..."
+    ```
+    *Replace `your_super_secret_string_here` with the secret you generated.*
 
-    ProxyPass /api/ ...
-    ProxyPassReverse /api/ ...
-
-    ProxyPass /upload ...
-    ProxyPassReverse /upload ...
-
-    <Location /webhook>
-        ProxyPass unix:/home/your_username/your-repo/conversation-analyzer/backend/conversation-analyzer.sock|http://localhost/webhook
-        ProxyPassReverse unix:/home/your_username/your-repo/conversation-analyzer/backend/conversation-analyzer.sock|http://localhost/webhook
-    </Location>
-</VirtualHost>
-```
-Restart Apache to apply the changes:
-```bash
-sudo systemctl restart apache2
-```
+4.  **Reload and Restart:**
+    Apply the changes to the service.
+    ```bash
+    sudo systemctl daemon-reload
+    sudo systemctl restart conversation-analyzer
+    ```
 
 ---
 
-### **Step 4: Set Up the GitHub Webhook**
+### Step 3: Configure the Webhook in Your GitHub Repository
 
-1.  Go to your GitHub repository's page.
-2.  Click on **Settings**.
-3.  In the left sidebar, click on **Webhooks**.
-4.  Click the **Add webhook** button.
-5.  **Payload URL:** Enter `http://zapp.sytes.net/webhook`.
-6.  **Content type:** Select `application/json`.
-7.  **Secret:** Enter the same secret string you used for the `GITHUB_WEBHOOK_SECRET` environment variable on your server.
-8.  **Which events would you like to trigger this webhook?** Select **Just the `push` event.**
-9.  Make sure **Active** is checked.
-10. Click **Add webhook**.
+The final step is to tell GitHub where to send the webhook notifications.
 
-GitHub will send a "ping" event to your server to verify the webhook. You can see the result in the "Recent Deliveries" tab in your webhook settings on GitHub. If everything is configured correctly, you should see a green checkmark.
+1.  **Go to your GitHub repository's settings.**
+2.  Navigate to **Webhooks** in the left sidebar.
+3.  Click **"Add webhook"**.
+4.  **Configure the webhook:**
+    *   **Payload URL:** This is the public URL of your webhook endpoint. For example: `http://zapp.sytes.net/webhook`.
+    *   **Content type:** Select `application/json`.
+    *   **Secret:** Paste the same secret key you generated and added to your server's environment.
+    *   **Which events would you like to trigger this webhook?** Select "Just the `push` event."
 
-Now, whenever you push to your `main` branch, your server will automatically deploy the latest version of your application.
+5.  **Add the webhook.**
+
+### Step 4: Test the Setup
+
+1.  **Check Recent Deliveries:**
+    In the GitHub Webhooks settings, you can see the "Recent Deliveries" tab. GitHub will send a "ping" event when you first create the webhook. It should show a green checkmark and a `200` response code if your server is configured correctly. If you see a red error, you can click on it to see the request and response details for debugging.
+
+2.  **Push a Change:**
+    Make a small, non-breaking change to your code (e.g., add a comment) and push it to the `main` branch.
+    ```bash
+    git commit -m "Test: Triggering automated deployment"
+    git push origin main
+    ```
+
+3.  **Monitor the Result:**
+    *   Check the "Recent Deliveries" in GitHub again for the new push event.
+    *   You can monitor the logs of your service in real-time on the server to see the update script running:
+        ```bash
+        journalctl -u conversation-analyzer -f
+        ```
+
+If everything is set up correctly, your server will automatically deploy the new version of the application within seconds of your push.

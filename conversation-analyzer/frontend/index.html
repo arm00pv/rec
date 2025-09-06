@@ -4,41 +4,64 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Conversation Analyzer</title>
-    <link rel="stylesheet" href="/rec/conversation-analyzer/frontend/style.css">
+    <base href="/">
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
 </head>
 <body>
-    <h1>Conversation Analyzer</h1>
+    <div class="container">
+        <header>
+            <h1>Conversation Analyzer</h1>
+            <div class="tabs">
+                <button class="tab-link active" data-tab="record-tab">Record</button>
+                <button class="tab-link" data-tab="tasks-tab">Tasks</button>
+            </div>
+        </header>
 
-    <div class="tabs">
-      <button class="tab-button active" data-tab="record-tab">Record</button>
-      <button class="tab-button" data-tab="tasks-tab">Tasks</button>
+        <main>
+            <!-- Recording Tab -->
+            <div id="record-tab" class="tab-content active">
+                <div id="recorder-ui">
+                    <p id="instructions">Press the button to start recording your conversation.</p>
+                    <button id="record-btn" aria-label="Start Recording">
+                        <i class="fas fa-microphone"></i>
+                    </button>
+                    <div id="recording-status" class="hidden">
+                        <p>Recording...</p>
+                        <canvas id="visualizer" width="300" height="50"></canvas>
+                    </div>
+                </div>
+
+                <div id="preview-ui" class="hidden">
+                    <h2>Recording Complete</h2>
+                    <p>Listen to your recording below or process it to extract tasks.</p>
+                    <audio id="audio-preview" controls></audio>
+                    <div class="button-group">
+                        <button id="process-btn" class="primary-btn">Process</button>
+                        <button id="discard-btn" class="secondary-btn">Discard</button>
+                    </div>
+                </div>
+
+                <div id="processing-ui" class="hidden">
+                    <h2>Processing...</h2>
+                    <p>Your audio is being uploaded and analyzed. Please wait.</p>
+                    <div class="progress-bar-container">
+                        <div id="progress-bar" style="width: 0%;"></div>
+                        <span id="progress-text">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tasks Tab -->
+            <div id="tasks-tab" class="tab-content">
+                <div id="task-list-container">
+                    <!-- Tasks will be loaded here -->
+                    <p id="loading-tasks">Loading tasks...</p>
+                </div>
+            </div>
+        </main>
     </div>
 
-    <div id="record-tab" class="tab-content active">
-      <canvas id="visualizer" class="hidden" width="500" height="100"></canvas>
-      <button id="record-button">Record</button>
-      <div id="preview-container" class="hidden">
-        <h3>Preview Recording</h3>
-        <audio id="audio-preview" controls></audio>
-        <div class="preview-buttons">
-            <button id="process-button">Process</button>
-            <button id="discard-button">Discard</button>
-        </div>
-      </div>
-      <div id="progress-container" class="hidden">
-        <p>Uploading...</p>
-        <div class="progress-bar">
-            <div class="progress-bar-fill"></div>
-        </div>
-        <span class="progress-text">0%</span>
-      </div>
-    </div>
-
-    <div id="tasks-tab" class="tab-content">
-      <h2>Tasks</h2>
-      <div id="tasks-container"></div>
-    </div>
-
-    <script src="/rec/conversation-analyzer/frontend/main.js"></script>
+    <script src="main.js"></script>
 </body>
 </html>
