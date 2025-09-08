@@ -160,7 +160,7 @@ document.addEventListener('DOMContentLoaded', () => {
         formData.append('audio', audioBlob, 'recording.webm');
 
         const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/upload', true);
+        xhr.open('POST', 'upload', true);
 
         xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
@@ -202,7 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
             taskListContainer.innerHTML = ''; // Clear previous tasks
             taskListContainer.appendChild(loadingTasks);
 
-            const response = await fetch('/api/tasks');
+            const response = await fetch('api/tasks');
             if (!response.ok) throw new Error('Failed to fetch tasks');
 
             const taskGroups = await response.json();
@@ -269,7 +269,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function toggleTaskDone(taskId, isDone) {
         try {
-            const response = await fetch(`/api/tasks/${taskId}`, {
+            const response = await fetch(`api/tasks/${taskId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ done: isDone }),
@@ -305,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const newContent = input.value.trim();
             if (newContent && newContent !== currentText) {
                 try {
-                    const response = await fetch(`/api/tasks/${taskId}`, {
+                    const response = await fetch(`api/tasks/${taskId}`, {
                         method: 'PUT',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ content: newContent }),
@@ -338,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         try {
-            const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+            const response = await fetch(`api/tasks/${taskId}`, { method: 'DELETE' });
             if (!response.ok) throw new Error('Failed to delete task');
 
             const taskItem = document.querySelector(`.task-item[data-task-id='${taskId}']`);
