@@ -1,34 +1,24 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
-    const recordBtn = document.getElementById('record-btn');
-    const processBtn = document.getElementById('process-btn');
-    const discardBtn = document.getElementById('discard-btn');
-    const audioPreview = document.getElementById('audio-preview');
+    const startRecognitionBtn = document.getElementById('start-recognition-btn');
+    const stopRecognitionBtn = document.getElementById('stop-recognition-btn');
+    const analyzeBtn = document.getElementById('analyze-btn');
+    const transcriptionText = document.getElementById('transcription-text');
+
+    const analysisResult = document.getElementById('analysis-result');
+    const newTasksList = document.getElementById('new-tasks-list');
+    const addToTasksBtn = document.getElementById('add-to-tasks-btn');
+    const mermaidDiagramContainer = document.getElementById('mermaid-diagram');
+
     const taskListContainer = document.getElementById('task-list-container');
     const loadingTasks = document.getElementById('loading-tasks');
     const tabs = document.querySelectorAll('.tab-link');
     const contents = document.querySelectorAll('.tab-content');
 
-    const recorderUI = document.getElementById('recorder-ui');
-    const previewUI = document.getElementById('preview-ui');
-    const processingUI = document.getElementById('processing-ui');
-    const recordingStatus = document.getElementById('recording-status');
-    const instructions = document.getElementById('instructions');
-
-    const visualizer = document.getElementById('visualizer');
-    const canvasCtx = visualizer.getContext('2d');
-
-    const progressBar = document.getElementById('progress-bar');
-    const progressText = document.getElementById('progress-text');
-
     // --- State ---
-    let mediaRecorder;
-    let audioChunks = [];
-    let audioBlob;
-    let audioUrl;
-    let audioContext;
-    let analyser;
-    let visualizerFrame;
+    let recognition;
+    let isRecording = false;
+    let analyzedTasks = [];
 
     // --- Tab Navigation ---
     tabs.forEach(tab => {
@@ -45,157 +35,163 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
-    // --- Recording Logic ---
-    recordBtn.addEventListener('click', async () => {
-        if (mediaRecorder && mediaRecorder.state === 'recording') {
+    // --- Speech Recognition Logic ---
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        recognition = new SpeechRecognition();
+        recognition.continuous = true;
+        recognition.interimResults = true;
+        recognition.lang = 'en-US';
+
+        recognition.onstart = () => {
+            isRecording = true;
+            startRecognitionBtn.classList.add('hidden');
+            stopRecognitionBtn.classList.remove('hidden');
+        };
+
+        recognition.onend = () => {
+            isRecording = false;
+            startRecognitionBtn.classList.remove('hidden');
+            stopRecognitionBtn.classList.add('hidden');
+        };
+
+        recognition.onresult = (event) => {
+            let interimTranscript = '';
+            let finalTranscript = '';
+
+            for (let i = event.resultIndex; i < event.results.length; ++i) {
+                if (event.results[i].isFinal) {
+                    finalTranscript += event.results[i][0].transcript;
+                } else {
+                    interimTranscript += event.results[i][0].transcript;
+                }
+            }
+
+            // Append final transcript to textarea
+            if (finalTranscript) {
+                transcriptionText.value += finalTranscript + ' ';
+            }
+        };
+
+        recognition.onerror = (event) => {
+            console.error('Speech recognition error', event.error);
             stopRecording();
-        } else {
-            await startRecording();
+        };
+
+    } else {
+        startRecognitionBtn.disabled = true;
+        transcriptionText.value = "Web Speech API not supported in this browser.";
+    }
+
+    startRecognitionBtn.addEventListener('click', () => {
+        if (recognition && !isRecording) {
+            recognition.start();
         }
     });
 
-    async function startRecording() {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-
-            mediaRecorder.ondataavailable = event => {
-                audioChunks.push(event.data);
-            };
-
-            mediaRecorder.onstop = () => {
-                audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                audioUrl = URL.createObjectURL(audioBlob);
-                audioPreview.src = audioUrl;
-
-                showPreviewUI();
-                audioChunks = [];
-            };
-
-            mediaRecorder.start();
-            recordBtn.classList.add('recording');
-            recordBtn.querySelector('i').classList.replace('fa-microphone', 'fa-stop');
-            instructions.textContent = "Press the button again to stop.";
-            recordingStatus.classList.remove('hidden');
-
-            visualize(stream);
-
-        } catch (err) {
-            console.error("Error starting recording:", err);
-            instructions.textContent = "Could not start recording. Please grant microphone permissions.";
-        }
-    }
+    stopRecognitionBtn.addEventListener('click', () => {
+        stopRecording();
+    });
 
     function stopRecording() {
-        mediaRecorder.stop();
-        recordBtn.classList.remove('recording');
-        recordBtn.querySelector('i').classList.replace('fa-stop', 'fa-microphone');
-        instructions.textContent = "Press the button to start recording your conversation.";
-        recordingStatus.classList.add('hidden');
-        cancelAnimationFrame(visualizerFrame);
-    }
-
-    // --- UI State Management ---
-    function showRecorderUI() {
-        recorderUI.classList.remove('hidden');
-        previewUI.classList.add('hidden');
-        processingUI.classList.add('hidden');
-        instructions.textContent = "Press the button to start recording your conversation.";
-    }
-
-    function showPreviewUI() {
-        recorderUI.classList.add('hidden');
-        previewUI.classList.remove('hidden');
-    }
-
-    function showProcessingUI() {
-        previewUI.classList.add('hidden');
-        processingUI.classList.remove('hidden');
-    }
-
-    // --- Audio Visualizer ---
-    function visualize(stream) {
-        if (!audioContext) {
-            audioContext = new AudioContext();
+        if (recognition && isRecording) {
+            recognition.stop();
         }
-        const source = audioContext.createMediaStreamSource(stream);
-        analyser = audioContext.createAnalyser();
-        analyser.fftSize = 256;
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-
-        source.connect(analyser);
-
-        const draw = () => {
-            visualizerFrame = requestAnimationFrame(draw);
-            analyser.getByteFrequencyData(dataArray);
-
-            canvasCtx.fillStyle = '#f1f1f1';
-            canvasCtx.fillRect(0, 0, visualizer.width, visualizer.height);
-
-            const barWidth = (visualizer.width / bufferLength) * 2.5;
-            let barHeight;
-            let x = 0;
-
-            for (let i = 0; i < bufferLength; i++) {
-                barHeight = dataArray[i] / 2;
-                canvasCtx.fillStyle = `rgb(0, 123, 255)`;
-                canvasCtx.fillRect(x, visualizer.height - barHeight, barWidth, barHeight);
-                x += barWidth + 1;
-            }
-        };
-        draw();
     }
 
-    // --- File Processing and Upload ---
-    discardBtn.addEventListener('click', () => {
-        URL.revokeObjectURL(audioUrl);
-        showRecorderUI();
+    // --- Analysis Logic ---
+    analyzeBtn.addEventListener('click', async () => {
+        const text = transcriptionText.value.trim();
+        if (!text) {
+            alert('Please record or type some text first.');
+            return;
+        }
+
+        analyzeBtn.disabled = true;
+        analyzeBtn.textContent = 'Analyzing...';
+
+        try {
+            const response = await fetch('/api/analyze', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ text: text })
+            });
+
+            if (!response.ok) throw new Error('Analysis failed');
+
+            const result = await response.json();
+            await displayAnalysisResult(result);
+
+        } catch (error) {
+            console.error('Error during analysis:', error);
+            alert('Analysis failed. Check console for details.');
+        } finally {
+            analyzeBtn.disabled = false;
+            analyzeBtn.textContent = 'Analyze';
+        }
     });
 
-    processBtn.addEventListener('click', async () => {
-        showProcessingUI();
+    async function displayAnalysisResult(result) {
+        analysisResult.classList.remove('hidden');
 
-        const formData = new FormData();
-        formData.append('audio', audioBlob, 'recording.webm');
+        // Render Tasks
+        newTasksList.innerHTML = '';
+        analyzedTasks = result.tasks || [];
 
-        const xhr = new XMLHttpRequest();
-        xhr.open('POST', '/upload', true);
+        if (analyzedTasks.length > 0) {
+            analyzedTasks.forEach(task => {
+                const li = document.createElement('li');
+                li.textContent = task;
+                newTasksList.appendChild(li);
+            });
+            addToTasksBtn.classList.remove('hidden');
+        } else {
+            newTasksList.innerHTML = '<li>No tasks found.</li>';
+            addToTasksBtn.classList.add('hidden');
+        }
 
-        xhr.upload.onprogress = (event) => {
-            if (event.lengthComputable) {
-                const percentComplete = (event.loaded / event.total) * 100;
-                progressBar.style.width = percentComplete + '%';
-                progressText.textContent = Math.round(percentComplete) + '%';
+        // Render Diagram
+        if (result.diagram) {
+            mermaidDiagramContainer.innerHTML = result.diagram;
+            mermaidDiagramContainer.removeAttribute('data-processed'); // Reset for re-rendering
+            try {
+                await mermaid.run({
+                    nodes: [mermaidDiagramContainer]
+                });
+            } catch (e) {
+                console.error('Mermaid rendering error:', e);
+                mermaidDiagramContainer.innerHTML = '<p>Error rendering diagram.</p><pre>' + result.diagram + '</pre>';
             }
-        };
+        }
+    }
 
-        xhr.onload = () => {
-            if (xhr.status === 200) {
-                console.log('Upload successful:', xhr.responseText);
-                // Switch to tasks tab to see results (they might take a moment to appear)
-                document.querySelector('.tab-link[data-tab="tasks-tab"]').click();
-            } else {
-                console.error('Upload failed:', xhr.statusText);
-                alert('Upload failed. Please try again.');
-            }
-            // Reset UI regardless of outcome
-            setTimeout(showRecorderUI, 1000);
-            progressBar.style.width = '0%';
-            progressText.textContent = '0%';
-        };
+    addToTasksBtn.addEventListener('click', async () => {
+        if (analyzedTasks.length === 0) return;
 
-        xhr.onerror = () => {
-            console.error('Upload error:', xhr.statusText);
-            alert('An error occurred during the upload. Please check your connection.');
-            showRecorderUI();
-        };
+        const today = new Date().toISOString().split('T')[0];
 
-        xhr.send(formData);
+        try {
+            const response = await fetch('/api/tasks', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    date: today,
+                    tasks: analyzedTasks
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to add tasks');
+
+            alert('Tasks added successfully!');
+            addToTasksBtn.classList.add('hidden'); // Prevent double add
+
+        } catch (error) {
+            console.error('Error adding tasks:', error);
+            alert('Failed to add tasks.');
+        }
     });
 
-
-    // --- Task Management ---
+    // --- Task Management (Existing Logic) ---
     async function fetchTasks() {
         try {
             loadingTasks.classList.remove('hidden');
@@ -210,7 +206,7 @@ document.addEventListener('DOMContentLoaded', () => {
             loadingTasks.classList.add('hidden');
 
             if (taskGroups.length === 0) {
-                taskListContainer.innerHTML = '<p>No tasks found. Process a recording to get started!</p>';
+                taskListContainer.innerHTML = '<p>No tasks found.</p>';
                 return;
             }
 

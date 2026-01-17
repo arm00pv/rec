@@ -8,6 +8,8 @@ import hmac
 import hashlib
 import requests
 import uuid
+import google.generativeai as genai
+import json
 
 app = Flask(__name__, static_folder='../frontend')
 
@@ -49,37 +51,60 @@ def serve_static(path):
     # This serves files from the 'frontend' directory
     return send_from_directory(app.static_folder, path)
 
-# --- n8n Integration ---
-def trigger_n8n_workflow(unique_filename):
-    """Triggers the n8n webhook with the unique filename of the new recording."""
-    webhook_url = os.environ.get('N8N_WEBHOOK_URL')
-    if webhook_url:
+# --- Analysis Endpoint ---
+@app.route("/api/analyze", methods=["POST"])
+def analyze_text():
+    if not request.json or "text" not in request.json:
+        return "Invalid request", 400
+
+    text = request.json["text"]
+
+    # Check for Gemini API key
+    api_key = os.environ.get('GOOGLE_API_KEY')
+
+    if api_key:
         try:
-            payload = {'file': unique_filename, 'timestamp': datetime.datetime.now().isoformat()}
-            requests.post(webhook_url, json=payload, timeout=10)
-            print(f"Successfully triggered n8n webhook for file: {unique_filename}")
-        except requests.exceptions.RequestException as e:
-            print(f"ERROR: Could not trigger n8n webhook. Reason: {e}")
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel('gemini-1.5-flash')
 
-# --- File Upload Endpoint ---
-@app.route("/upload", methods=["POST"])
-def upload_file():
-    if 'audio' not in request.files:
-        return "No audio file part", 400
-    file = request.files['audio']
-    if file.filename == '':
-        return "No selected file", 400
-    if file:
-        timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-        random_chars = str(uuid.uuid4())[:8]
-        unique_filename = f"rec_{timestamp}_{random_chars}.webm"
+            prompt = f"""
+            Analyze the following text and extract actionable tasks and create a Mermaid diagram representing the flow or concepts.
 
-        filepath = os.path.join(UPLOAD_FOLDER, unique_filename)
-        file.save(filepath)
+            Text:
+            {text}
 
-        trigger_n8n_workflow(unique_filename)
+            Return the result in the following JSON format ONLY (no markdown blocks):
+            {{
+                "tasks": ["Task 1", "Task 2", ...],
+                "diagram": "graph TD; A-->B; ..."
+            }}
+            """
 
-        return "File uploaded successfully, processing started.", 200
+            response = model.generate_content(prompt)
+            # Clean up response text if it contains markdown code blocks
+            response_text = response.text.strip()
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+
+            result = json.loads(response_text)
+            return jsonify(result)
+
+        except Exception as e:
+            print(f"Error calling Gemini: {e}")
+            # Fallback to mock response in case of error
+            return jsonify({
+                "tasks": ["Check API Key configuration", "Review logs"],
+                "diagram": "graph TD; Error[Error calling Gemini] --> CheckLog[Check Logs]"
+            })
+    else:
+        # Mock response if no key provided
+        print("No GOOGLE_API_KEY found. Using mock response.")
+        return jsonify({
+            "tasks": ["(Mock) Buy groceries", "(Mock) Call mom", "(Mock) Schedule meeting"],
+            "diagram": "graph TD; A[Start] --> B{Is it sunny?}; B -- Yes --> C[Go outside]; B -- No --> D[Stay inside];"
+        })
 
 # --- Task API Endpoints ---
 @app.route("/api/tasks", methods=["GET"])
@@ -147,4 +172,6 @@ def webhook():
     return "No update needed", 200
 
 if __name__ == "__main__":
+    with app.app_context():
+        db.create_all()
     app.run(debug=True, port=5000)

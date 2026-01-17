@@ -7,47 +7,55 @@
     <base href="/">
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Conversation Analyzer</h1>
             <div class="tabs">
-                <button class="tab-link active" data-tab="record-tab">Record</button>
+                <button class="tab-link active" data-tab="record-tab">Note Taking</button>
                 <button class="tab-link" data-tab="tasks-tab">Tasks</button>
             </div>
         </header>
 
         <main>
-            <!-- Recording Tab -->
+            <!-- Note Taking / Transcription Tab -->
             <div id="record-tab" class="tab-content active">
                 <div id="recorder-ui">
-                    <p id="instructions">Press the button to start recording your conversation.</p>
-                    <button id="record-btn" aria-label="Start Recording">
-                        <i class="fas fa-microphone"></i>
-                    </button>
-                    <div id="recording-status" class="hidden">
-                        <p>Recording...</p>
-                        <canvas id="visualizer" width="300" height="50"></canvas>
+                    <p id="instructions">Speak to take notes.</p>
+                    <div class="controls">
+                        <button id="start-recognition-btn" class="primary-btn">
+                            <i class="fas fa-microphone"></i> Start Listening
+                        </button>
+                        <button id="stop-recognition-btn" class="secondary-btn hidden">
+                            <i class="fas fa-stop"></i> Stop Listening
+                        </button>
+                    </div>
+
+                    <div class="transcription-container">
+                        <textarea id="transcription-text" placeholder="Your notes will appear here..." rows="10"></textarea>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="analyze-btn" class="primary-btn">Analyze</button>
                     </div>
                 </div>
 
-                <div id="preview-ui" class="hidden">
-                    <h2>Recording Complete</h2>
-                    <p>Listen to your recording below or process it to extract tasks.</p>
-                    <audio id="audio-preview" controls></audio>
-                    <div class="button-group">
-                        <button id="process-btn" class="primary-btn">Process</button>
-                        <button id="discard-btn" class="secondary-btn">Discard</button>
-                    </div>
-                </div>
+                <div id="analysis-result" class="hidden">
+                    <h2>Analysis Result</h2>
 
-                <div id="processing-ui" class="hidden">
-                    <h2>Processing...</h2>
-                    <p>Your audio is being uploaded and analyzed. Please wait.</p>
-                    <div class="progress-bar-container">
-                        <div id="progress-bar" style="width: 0%;"></div>
-                        <span id="progress-text">0%</span>
+                    <div class="analysis-section">
+                        <h3>Identified Tasks</h3>
+                        <ul id="new-tasks-list"></ul>
+                        <button id="add-to-tasks-btn" class="secondary-btn hidden">Add to Tasks List</button>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h3>Flow Diagram</h3>
+                        <div class="mermaid" id="mermaid-diagram">
+                            <!-- Mermaid diagram will be rendered here -->
+                        </div>
                     </div>
                 </div>
             </div>
@@ -63,5 +71,8 @@
     </div>
 
     <script src="main.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: false });
+    </script>
 </body>
 </html>
