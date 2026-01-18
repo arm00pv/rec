@@ -8,10 +8,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysisResult = document.getElementById('analysis-result');
     const newTasksList = document.getElementById('new-tasks-list');
     const addToTasksBtn = document.getElementById('add-to-tasks-btn');
+    const saveNoteBtn = document.getElementById('save-note-btn');
     const mermaidDiagramContainer = document.getElementById('mermaid-diagram');
 
     const taskListContainer = document.getElementById('task-list-container');
     const loadingTasks = document.getElementById('loading-tasks');
+    const noteListContainer = document.getElementById('note-list-container');
+    const loadingNotes = document.getElementById('loading-notes');
+    const noteListView = document.getElementById('note-list-view');
+    const noteDetailView = document.getElementById('note-detail-view');
+    const noteDetailContent = document.getElementById('note-detail-content');
+    const backToNotesBtn = document.getElementById('back-to-notes-btn');
+
     const tabs = document.querySelectorAll('.tab-link');
     const contents = document.querySelectorAll('.tab-content');
 
@@ -19,6 +27,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let recognition;
     let isRecording = false;
     let analyzedTasks = [];
+    let currentDiagramCode = '';
 
     // --- Tab Navigation ---
     tabs.forEach(tab => {
@@ -31,6 +40,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (tab.dataset.tab === 'tasks-tab') {
                 fetchTasks();
+            } else if (tab.dataset.tab === 'notes-tab') {
+                fetchNotes();
+                noteListView.classList.remove('hidden');
+                noteDetailView.classList.add('hidden');
             }
         });
     });
@@ -141,7 +154,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (analyzedTasks.length > 0) {
             analyzedTasks.forEach(task => {
                 const li = document.createElement('li');
-                li.textContent = task;
+                // Support both old string format and new object format for backward compatibility/robustness
+                if (typeof task === 'string') {
+                    li.textContent = task;
+                } else {
+                    let content = `<strong>${task.content}</strong>`;
+                    if (task.priority) content += ` <span class="priority-badge priority-${task.priority.toLowerCase()}">${task.priority}</span>`;
+                    if (task.due_date) content += ` <span class="due-date"><i class="far fa-calendar-alt"></i> ${task.due_date}</span>`;
+                    li.innerHTML = content;
+                }
                 newTasksList.appendChild(li);
             });
             addToTasksBtn.classList.remove('hidden');
@@ -151,6 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Render Diagram
+        currentDiagramCode = result.diagram;
         if (result.diagram) {
             mermaidDiagramContainer.innerHTML = result.diagram;
             mermaidDiagramContainer.removeAttribute('data-processed'); // Reset for re-rendering
@@ -162,6 +184,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.error('Mermaid rendering error:', e);
                 mermaidDiagramContainer.innerHTML = '<p>Error rendering diagram.</p><pre>' + result.diagram + '</pre>';
             }
+        } else {
+            currentDiagramCode = '';
+            mermaidDiagramContainer.innerHTML = '';
         }
     }
 
@@ -189,6 +214,122 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error adding tasks:', error);
             alert('Failed to add tasks.');
         }
+    });
+
+    saveNoteBtn.addEventListener('click', async () => {
+        const content = transcriptionText.value.trim();
+        if (!content) return;
+
+        try {
+            const response = await fetch('/api/notes', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    content: content,
+                    diagram_code: currentDiagramCode
+                })
+            });
+
+            if (!response.ok) throw new Error('Failed to save note');
+            alert('Note saved successfully!');
+        } catch (error) {
+            console.error('Error saving note:', error);
+            alert('Failed to save note.');
+        }
+    });
+
+    // --- Saved Notes Logic ---
+    async function fetchNotes() {
+        try {
+            loadingNotes.classList.remove('hidden');
+            noteListContainer.innerHTML = '';
+            noteListContainer.appendChild(loadingNotes);
+
+            const response = await fetch('/api/notes');
+            if (!response.ok) throw new Error('Failed to fetch notes');
+
+            const notes = await response.json();
+            loadingNotes.classList.add('hidden');
+
+            if (notes.length === 0) {
+                noteListContainer.innerHTML = '<p>No saved notes.</p>';
+                return;
+            }
+
+            noteListContainer.innerHTML = ''; // Clear loading
+            notes.forEach(note => {
+                const noteEl = document.createElement('div');
+                noteEl.className = 'note-item';
+
+                const summary = document.createElement('div');
+                summary.className = 'note-summary';
+                const date = new Date(note.created_at).toLocaleString();
+                const preview = note.content.substring(0, 50) + (note.content.length > 50 ? '...' : '');
+                summary.innerHTML = `<span class="note-date">${date}</span><span class="note-preview">${preview}</span>`;
+
+                const deleteBtn = document.createElement('button');
+                deleteBtn.className = 'delete-btn';
+                deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+                deleteBtn.onclick = (e) => {
+                    e.stopPropagation();
+                    deleteNote(note.id, noteEl);
+                };
+
+                noteEl.appendChild(summary);
+                noteEl.appendChild(deleteBtn);
+                noteEl.onclick = () => viewNoteDetail(note);
+
+                noteListContainer.appendChild(noteEl);
+            });
+
+        } catch (error) {
+            console.error('Error fetching notes:', error);
+            loadingNotes.classList.add('hidden');
+            noteListContainer.innerHTML = '<p>Error loading notes.</p>';
+        }
+    }
+
+    async function deleteNote(noteId, element) {
+        if (!confirm('Delete this note?')) return;
+        try {
+            const response = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
+            if (response.ok) {
+                element.remove();
+            }
+        } catch (error) {
+            console.error('Error deleting note:', error);
+        }
+    }
+
+    async function viewNoteDetail(note) {
+        noteListView.classList.add('hidden');
+        noteDetailView.classList.remove('hidden');
+
+        noteDetailContent.innerHTML = `
+            <div class="analysis-section">
+                <h3>Transcript</h3>
+                <p>${note.content}</p>
+            </div>
+            ${note.diagram_code ? `
+            <div class="analysis-section">
+                <h3>Flow Diagram</h3>
+                <div class="mermaid" id="note-mermaid-diagram">${note.diagram_code}</div>
+            </div>` : ''}
+        `;
+
+        if (note.diagram_code) {
+             const container = document.getElementById('note-mermaid-diagram');
+             try {
+                await mermaid.run({ nodes: [container] });
+            } catch (e) {
+                console.error('Mermaid error:', e);
+            }
+        }
+    }
+
+    backToNotesBtn.addEventListener('click', () => {
+        noteDetailView.classList.add('hidden');
+        noteListView.classList.remove('hidden');
     });
 
     // --- Task Management (Existing Logic) ---
@@ -248,8 +389,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const content = document.createElement('span');
         content.className = 'task-content';
-        content.textContent = task.content;
-        content.addEventListener('dblclick', () => editTaskContent(task.id, content));
+
+        let contentHtml = task.content;
+        const meta = document.createElement('div');
+        meta.className = 'task-meta';
+
+        if (task.priority) {
+            const badge = document.createElement('span');
+            badge.className = `priority-badge priority-${task.priority.toLowerCase()}`;
+            badge.textContent = task.priority;
+            meta.appendChild(badge);
+        }
+        if (task.due_date) {
+            const dateSpan = document.createElement('span');
+            dateSpan.className = 'due-date';
+            dateSpan.innerHTML = `<i class="far fa-calendar-alt"></i> ${task.due_date}`;
+            meta.appendChild(dateSpan);
+        }
+
+        content.innerHTML = contentHtml;
+        if (meta.children.length > 0) {
+            // If we have meta info, wrap content and meta in a column layout or just append
+            // For simplicity, let's just append meta after content text but inside the span if we want it inline,
+            // or modify the flex layout. Let's modify the item layout slightly.
+            // Actually, let's put content and meta in a wrapper
+            const wrapper = document.createElement('div');
+            wrapper.style.flexGrow = '1';
+
+            const textDiv = document.createElement('div');
+            textDiv.textContent = task.content;
+            textDiv.style.marginBottom = '5px';
+            textDiv.addEventListener('dblclick', () => editTaskContent(task.id, textDiv));
+
+            wrapper.appendChild(textDiv);
+            wrapper.appendChild(meta);
+
+            // Replace the simple content span with our wrapper
+            content.replaceWith(wrapper);
+            // Note: toggleTaskDone relies on item structure, but it targets item class.
+            // editTaskContent relies on passed element.
+        } else {
+             content.textContent = task.content;
+             content.addEventListener('dblclick', () => editTaskContent(task.id, content));
+        }
 
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
@@ -257,7 +439,11 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteBtn.addEventListener('click', () => deleteTask(task.id));
 
         item.appendChild(checkbox);
-        item.appendChild(content);
+        if (meta.children.length > 0) {
+             // Already appended wrapper above
+        } else {
+            item.appendChild(content);
+        }
         item.appendChild(deleteBtn);
 
         return item;

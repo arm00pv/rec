@@ -15,6 +15,7 @@
             <h1>Conversation Analyzer</h1>
             <div class="tabs">
                 <button class="tab-link active" data-tab="record-tab">Note Taking</button>
+                <button class="tab-link" data-tab="notes-tab">Saved Notes</button>
                 <button class="tab-link" data-tab="tasks-tab">Tasks</button>
             </div>
         </header>
@@ -43,7 +44,10 @@
                 </div>
 
                 <div id="analysis-result" class="hidden">
-                    <h2>Analysis Result</h2>
+                    <div class="analysis-header">
+                        <h2>Analysis Result</h2>
+                        <button id="save-note-btn" class="secondary-btn small-btn"><i class="fas fa-save"></i> Save Note</button>
+                    </div>
 
                     <div class="analysis-section">
                         <h3>Identified Tasks</h3>
@@ -56,6 +60,22 @@
                         <div class="mermaid" id="mermaid-diagram">
                             <!-- Mermaid diagram will be rendered here -->
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Saved Notes Tab -->
+            <div id="notes-tab" class="tab-content">
+                <div id="note-list-view">
+                    <div id="note-list-container">
+                        <!-- Notes will be loaded here -->
+                        <p id="loading-notes">Loading notes...</p>
+                    </div>
+                </div>
+                <div id="note-detail-view" class="hidden">
+                    <button id="back-to-notes-btn" class="secondary-btn small-btn"><i class="fas fa-arrow-left"></i> Back</button>
+                    <div id="note-detail-content">
+                        <!-- Note content will be loaded here -->
                     </div>
                 </div>
             </div>

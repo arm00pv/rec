@@ -30,9 +30,31 @@ class Task(db.Model):
     content = db.Column(db.String(200), nullable=False)
     task_date = db.Column(db.String(20), nullable=False)
     done = db.Column(db.Boolean, default=False)
+    priority = db.Column(db.String(20), default="Medium")
+    due_date = db.Column(db.String(20), nullable=True)
 
     def to_dict(self):
-        return {"id": self.id, "content": self.content, "done": self.done}
+        return {
+            "id": self.id,
+            "content": self.content,
+            "done": self.done,
+            "priority": self.priority,
+            "due_date": self.due_date
+        }
+
+class Note(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    content = db.Column(db.Text, nullable=False)
+    diagram_code = db.Column(db.Text, nullable=True)
+    created_at = db.Column(db.String(30), nullable=False)
+
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "content": self.content,
+            "diagram_code": self.diagram_code,
+            "created_at": self.created_at
+        }
 
 # --- CLI Command to Init DB ---
 @app.cli.command("init-db")
@@ -69,13 +91,17 @@ def analyze_text():
 
             prompt = f"""
             Analyze the following text and extract actionable tasks and create a Mermaid diagram representing the flow or concepts.
+            For each task, assign a priority (High, Medium, Low) and extract a due date (YYYY-MM-DD) if explicitly mentioned (otherwise null).
 
             Text:
             {text}
 
             Return the result in the following JSON format ONLY (no markdown blocks):
             {{
-                "tasks": ["Task 1", "Task 2", ...],
+                "tasks": [
+                    {{"content": "Task description...", "priority": "High", "due_date": "2023-10-27"}},
+                    ...
+                ],
                 "diagram": "graph TD; A-->B; ..."
             }}
             """
@@ -95,14 +121,21 @@ def analyze_text():
             print(f"Error calling Gemini: {e}")
             # Fallback to mock response in case of error
             return jsonify({
-                "tasks": ["Check API Key configuration", "Review logs"],
+                "tasks": [
+                    {"content": "Check API Key configuration", "priority": "High", "due_date": None},
+                    {"content": "Review logs", "priority": "Medium", "due_date": None}
+                ],
                 "diagram": "graph TD; Error[Error calling Gemini] --> CheckLog[Check Logs]"
             })
     else:
         # Mock response if no key provided
         print("No GOOGLE_API_KEY found. Using mock response.")
         return jsonify({
-            "tasks": ["(Mock) Buy groceries", "(Mock) Call mom", "(Mock) Schedule meeting"],
+            "tasks": [
+                {"content": "(Mock) Buy groceries", "priority": "Medium", "due_date": "2023-12-01"},
+                {"content": "(Mock) Call mom", "priority": "High", "due_date": None},
+                {"content": "(Mock) Schedule meeting", "priority": "Low", "due_date": "2023-12-05"}
+            ],
             "diagram": "graph TD; A[Start] --> B{Is it sunny?}; B -- Yes --> C[Go outside]; B -- No --> D[Stay inside];"
         })
 
@@ -122,12 +155,30 @@ def add_task():
     if not request.json or "date" not in request.json or "tasks" not in request.json:
         return "Invalid request", 400
     date_str = request.json["date"]
-    new_tasks_content = request.json["tasks"]
+    new_tasks_data = request.json["tasks"]
     added_tasks = []
-    for task_content in new_tasks_content:
-        new_task = Task(content=task_content, task_date=date_str, done=False)
+
+    for task_item in new_tasks_data:
+        # Handle both old format (string) and new format (dict)
+        if isinstance(task_item, str):
+            content = task_item
+            priority = "Medium"
+            due_date = None
+        else:
+            content = task_item.get("content", "New Task")
+            priority = task_item.get("priority", "Medium")
+            due_date = task_item.get("due_date")
+
+        new_task = Task(
+            content=content,
+            task_date=date_str,
+            done=False,
+            priority=priority,
+            due_date=due_date
+        )
         db.session.add(new_task)
         added_tasks.append(new_task)
+
     db.session.commit()
     return jsonify({"date": date_str, "tasks": [t.to_dict() for t in added_tasks]}), 201
 
@@ -151,6 +202,35 @@ def delete_task(task_id):
     db.session.delete(task)
     db.session.commit()
     return "Task deleted successfully", 200
+
+# --- Note API Endpoints ---
+@app.route("/api/notes", methods=["GET"])
+def get_notes():
+    notes = Note.query.order_by(Note.created_at.desc()).all()
+    return jsonify([note.to_dict() for note in notes])
+
+@app.route("/api/notes", methods=["POST"])
+def add_note():
+    if not request.json or "content" not in request.json:
+        return "Invalid request", 400
+
+    content = request.json["content"]
+    diagram_code = request.json.get("diagram_code")
+    created_at = datetime.datetime.now().isoformat()
+
+    new_note = Note(content=content, diagram_code=diagram_code, created_at=created_at)
+    db.session.add(new_note)
+    db.session.commit()
+    return jsonify(new_note.to_dict()), 201
+
+@app.route("/api/notes/<int:note_id>", methods=["DELETE"])
+def delete_note(note_id):
+    note = db.session.get(Note, note_id)
+    if note is None:
+        return "Note not found", 404
+    db.session.delete(note)
+    db.session.commit()
+    return "Note deleted successfully", 200
 
 # --- Webhook Endpoint for GitHub CI/CD ---
 @app.route("/webhook", methods=["POST"])
