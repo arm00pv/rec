@@ -13,6 +13,8 @@
     --danger-color: #dc3545;
     --warning-color: #ffc107;
     --light-gray: #f1f1f1;
+    --toast-bg-color: #323232;
+    --toast-text-color: #ffffff;
 }
 
 body {
@@ -80,12 +82,19 @@ main {
     padding: 30px;
 }
 
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
 .tab-content {
     display: none;
 }
 
 .tab-content.active {
     display: block;
+    animation: fadeIn 0.3s ease-out;
 }
 
 /* Transcription / Note Taking UI */
@@ -116,6 +125,12 @@ main {
     font-size: 16px;
     resize: vertical;
     box-sizing: border-box;
+    transition: border-color 0.3s;
+}
+
+#transcription-text:focus {
+    border-color: var(--primary-color);
+    outline: none;
 }
 
 .action-buttons {
@@ -128,10 +143,14 @@ main {
     border-radius: 5px;
     font-size: 16px;
     cursor: pointer;
-    transition: background-color 0.3s;
+    transition: background-color 0.3s, transform 0.1s;
     display: inline-flex;
     align-items: center;
     gap: 8px;
+}
+
+.primary-btn:active, .secondary-btn:active {
+    transform: scale(0.98);
 }
 
 .primary-btn {
@@ -160,6 +179,7 @@ main {
     margin-top: 30px;
     border-top: 2px solid var(--light-gray);
     padding-top: 20px;
+    animation: fadeIn 0.5s ease-out;
 }
 
 .analysis-header {
@@ -323,23 +343,27 @@ main {
     font-weight: 500;
 }
 
-.delete-btn {
+.action-icon-btn {
     background: none;
     border: none;
     color: var(--secondary-color);
     cursor: pointer;
-    font-size: 18px;
+    font-size: 16px;
     padding: 5px;
-    opacity: 0;
+    opacity: 0.5;
     transition: opacity 0.2s, color 0.2s;
-    margin-left: 10px;
+    margin-left: 5px;
 }
 
-.task-item:hover .delete-btn {
+.task-item:hover .action-icon-btn {
     opacity: 1;
 }
 
-.delete-btn:hover {
+.action-icon-btn:hover {
+    color: var(--primary-color);
+}
+
+.action-icon-btn.delete-btn:hover {
     color: var(--danger-color);
 }
 
@@ -389,6 +413,7 @@ main {
 
 #note-detail-view {
     padding-top: 10px;
+    animation: fadeIn 0.3s ease-out;
 }
 
 .detail-header {
@@ -399,6 +424,87 @@ main {
 
 #note-detail-content .analysis-section {
     margin-top: 20px;
+}
+
+/* Empty States */
+.empty-state {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--secondary-color);
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.empty-state p {
+    font-size: 18px;
+    margin: 0;
+}
+
+/* Loading Spinner */
+.spinner-container {
+    text-align: center;
+    padding: 20px;
+}
+
+.spinner {
+    display: inline-block;
+    width: 40px;
+    height: 40px;
+    border: 4px solid rgba(0, 0, 0, 0.1);
+    border-radius: 50%;
+    border-top-color: var(--primary-color);
+    animation: spin 1s ease-in-out infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Toast Notifications */
+#toast-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background-color: var(--toast-bg-color);
+    color: var(--toast-text-color);
+    padding: 12px 20px;
+    border-radius: 5px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 250px;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: slideIn 0.3s forwards;
+}
+
+.toast.hide {
+    animation: slideOut 0.3s forwards;
+}
+
+.toast.success { border-left: 5px solid var(--success-color); }
+.toast.error { border-left: 5px solid var(--danger-color); }
+.toast.info { border-left: 5px solid var(--primary-color); }
+
+@keyframes slideIn {
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideOut {
+    to { opacity: 0; transform: translateY(20px); }
 }
 
 .hidden {

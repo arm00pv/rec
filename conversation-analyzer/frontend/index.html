@@ -84,7 +84,10 @@
                     </div>
                     <div id="note-list-container">
                         <!-- Notes will be loaded here -->
-                        <p id="loading-notes">Loading notes...</p>
+                        <div class="spinner-container">
+                            <div class="spinner"></div>
+                            <p>Loading notes...</p>
+                        </div>
                     </div>
                 </div>
                 <div id="note-detail-view" class="hidden">
@@ -121,11 +124,16 @@
                 </div>
                 <div id="task-list-container">
                     <!-- Tasks will be loaded here -->
-                    <p id="loading-tasks">Loading tasks...</p>
+                    <div class="spinner-container">
+                        <div class="spinner"></div>
+                        <p>Loading tasks...</p>
+                    </div>
                 </div>
             </div>
         </main>
     </div>
+
+    <div id="toast-container"></div>
 
     <script src="main.js"></script>
     <script>

@@ -14,18 +14,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const mermaidDiagramContainer = document.getElementById('mermaid-diagram');
 
     const taskListContainer = document.getElementById('task-list-container');
-    const loadingTasks = document.getElementById('loading-tasks');
+    const loadingTasks = document.getElementById('loading-tasks'); // Note: This element ID might have been removed/changed in HTML
     const filterStatus = document.getElementById('filter-status');
     const filterPriority = document.getElementById('filter-priority');
 
     const noteListContainer = document.getElementById('note-list-container');
-    const loadingNotes = document.getElementById('loading-notes');
+    const loadingNotes = document.getElementById('loading-notes'); // Note: This might be removed in HTML
     const noteListView = document.getElementById('note-list-view');
     const noteDetailView = document.getElementById('note-detail-view');
     const noteDetailContent = document.getElementById('note-detail-content');
     const backToNotesBtn = document.getElementById('back-to-notes-btn');
     const noteSearchInput = document.getElementById('note-search-input');
     const exportNoteBtn = document.getElementById('export-note-btn');
+    const toastContainer = document.getElementById('toast-container');
 
     const tabs = document.querySelectorAll('.tab-link');
     const contents = document.querySelectorAll('.tab-content');
@@ -37,6 +38,44 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDiagramCode = '';
     let allNotes = [];
     let currentViewingNote = null;
+
+    // --- Utilities ---
+    function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.className = `toast ${type}`;
+
+        const iconMap = {
+            success: 'fa-check-circle',
+            error: 'fa-exclamation-circle',
+            info: 'fa-info-circle'
+        };
+
+        toast.innerHTML = `<i class="fas ${iconMap[type]}"></i> <span>${message}</span>`;
+        toastContainer.appendChild(toast);
+
+        setTimeout(() => {
+            toast.classList.add('hide');
+            toast.addEventListener('animationend', () => toast.remove());
+        }, 3000);
+    }
+
+    function showLoading(container, text = 'Loading...') {
+        container.innerHTML = `
+            <div class="spinner-container">
+                <div class="spinner"></div>
+                <p>${text}</p>
+            </div>
+        `;
+    }
+
+    function showEmptyState(container, message, iconClass = 'fa-search') {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas ${iconClass}"></i>
+                <p>${message}</p>
+            </div>
+        `;
+    }
 
     // --- Tab Navigation ---
     tabs.forEach(tab => {
@@ -69,6 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isRecording = true;
             startRecognitionBtn.classList.add('hidden');
             stopRecognitionBtn.classList.remove('hidden');
+            transcriptionText.focus(); // Visual feedback
         };
 
         recognition.onend = () => {
@@ -97,6 +137,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         recognition.onerror = (event) => {
             console.error('Speech recognition error', event.error);
+            showToast('Speech recognition error: ' + event.error, 'error');
             stopRecording();
         };
 
@@ -125,12 +166,12 @@ document.addEventListener('DOMContentLoaded', () => {
     analyzeBtn.addEventListener('click', async () => {
         const text = transcriptionText.value.trim();
         if (!text) {
-            alert('Please record or type some text first.');
+            showToast('Please record or type some text first.', 'info');
             return;
         }
 
         analyzeBtn.disabled = true;
-        analyzeBtn.textContent = 'Analyzing...';
+        analyzeBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin-bottom:0;vertical-align:middle;"></div> Analyzing...';
 
         try {
             const response = await fetch('/api/analyze', {
@@ -143,10 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const result = await response.json();
             await displayAnalysisResult(result);
+            showToast('Analysis complete', 'success');
 
         } catch (error) {
             console.error('Error during analysis:', error);
-            alert('Analysis failed. Check console for details.');
+            showToast('Analysis failed. Check console.', 'error');
         } finally {
             analyzeBtn.disabled = false;
             analyzeBtn.textContent = 'Analyze';
@@ -167,7 +209,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (analyzedTasks.length > 0) {
             analyzedTasks.forEach(task => {
                 const li = document.createElement('li');
-                // Support both old string format and new object format for backward compatibility/robustness
+                // Support both old string format and new object format
                 if (typeof task === 'string') {
                     li.textContent = task;
                 } else {
@@ -201,6 +243,9 @@ document.addEventListener('DOMContentLoaded', () => {
             currentDiagramCode = '';
             mermaidDiagramContainer.innerHTML = '';
         }
+
+        // Scroll to result
+        analysisResult.scrollIntoView({ behavior: 'smooth' });
     }
 
     addToTasksBtn.addEventListener('click', async () => {
@@ -220,12 +265,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!response.ok) throw new Error('Failed to add tasks');
 
-            alert('Tasks added successfully!');
+            showToast('Tasks added successfully!', 'success');
             addToTasksBtn.classList.add('hidden'); // Prevent double add
 
         } catch (error) {
             console.error('Error adding tasks:', error);
-            alert('Failed to add tasks.');
+            showToast('Failed to add tasks.', 'error');
         }
     });
 
@@ -249,31 +294,26 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!response.ok) throw new Error('Failed to save note');
-            alert('Note saved successfully!');
+            showToast('Note saved successfully!', 'success');
         } catch (error) {
             console.error('Error saving note:', error);
-            alert('Failed to save note.');
+            showToast('Failed to save note.', 'error');
         }
     });
 
     // --- Saved Notes Logic ---
     async function fetchNotes() {
         try {
-            loadingNotes.classList.remove('hidden');
-            noteListContainer.innerHTML = '';
-            noteListContainer.appendChild(loadingNotes);
+            showLoading(noteListContainer, 'Loading notes...');
 
             const response = await fetch('/api/notes');
             if (!response.ok) throw new Error('Failed to fetch notes');
 
-            allNotes = await response.json(); // Store all notes for filtering
-            loadingNotes.classList.add('hidden');
-
+            allNotes = await response.json();
             renderNotesList(allNotes);
 
         } catch (error) {
             console.error('Error fetching notes:', error);
-            loadingNotes.classList.add('hidden');
             noteListContainer.innerHTML = '<p>Error loading notes.</p>';
         }
     }
@@ -281,7 +321,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderNotesList(notes) {
         noteListContainer.innerHTML = '';
         if (notes.length === 0) {
-            noteListContainer.innerHTML = '<p>No saved notes found.</p>';
+            showEmptyState(noteListContainer, 'No saved notes found.', 'fa-sticky-note');
             return;
         }
 
@@ -303,8 +343,9 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
 
             const deleteBtn = document.createElement('button');
-            deleteBtn.className = 'delete-btn';
+            deleteBtn.className = 'action-icon-btn delete-btn';
             deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+            deleteBtn.title = 'Delete Note';
             deleteBtn.onclick = (e) => {
                 e.stopPropagation();
                 deleteNote(note.id, noteEl);
@@ -335,12 +376,16 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const response = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
             if (response.ok) {
-                // remove from allNotes array too
                 allNotes = allNotes.filter(n => n.id !== noteId);
                 element.remove();
+                if (allNotes.length === 0) {
+                    showEmptyState(noteListContainer, 'No saved notes found.', 'fa-sticky-note');
+                }
+                showToast('Note deleted', 'success');
             }
         } catch (error) {
             console.error('Error deleting note:', error);
+            showToast('Failed to delete note', 'error');
         }
     }
 
@@ -408,6 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        showToast('Note exported', 'success');
     });
 
     backToNotesBtn.addEventListener('click', () => {
@@ -424,20 +470,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function fetchTasks() {
         try {
-            loadingTasks.classList.remove('hidden');
-            taskListContainer.innerHTML = ''; // Clear previous tasks
-            taskListContainer.appendChild(loadingTasks);
+            showLoading(taskListContainer, 'Loading tasks...');
 
             const response = await fetch('/api/tasks');
             if (!response.ok) throw new Error('Failed to fetch tasks');
 
             const taskGroups = await response.json();
 
-            loadingTasks.classList.add('hidden');
             taskListContainer.innerHTML = '';
 
             if (taskGroups.length === 0) {
-                taskListContainer.innerHTML = '<p>No tasks found.</p>';
+                showEmptyState(taskListContainer, 'No tasks found.', 'fa-tasks');
                 return;
             }
 
@@ -480,12 +523,11 @@ document.addEventListener('DOMContentLoaded', () => {
             });
 
             if (!hasVisibleTasks) {
-                taskListContainer.innerHTML = '<p>No tasks match your filters.</p>';
+                showEmptyState(taskListContainer, 'No tasks match your filters.', 'fa-filter');
             }
 
         } catch (error) {
             console.error('Error fetching tasks:', error);
-            loadingTasks.classList.add('hidden');
             taskListContainer.innerHTML = '<p>Could not load tasks. Please try again later.</p>';
         }
     }
@@ -544,14 +586,27 @@ document.addEventListener('DOMContentLoaded', () => {
 
         content.replaceWith(wrapper);
 
+        // Actions Container
+        const actionsDiv = document.createElement('div');
+
+        const editBtn = document.createElement('button');
+        editBtn.className = 'action-icon-btn';
+        editBtn.innerHTML = '<i class="fas fa-pencil-alt"></i>';
+        editBtn.title = 'Edit Task';
+        editBtn.addEventListener('click', () => editTaskContent(task.id, textDiv));
+
         const deleteBtn = document.createElement('button');
-        deleteBtn.className = 'delete-btn';
+        deleteBtn.className = 'action-icon-btn delete-btn';
         deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+        deleteBtn.title = 'Delete Task';
         deleteBtn.addEventListener('click', () => deleteTask(task.id));
+
+        actionsDiv.appendChild(editBtn);
+        actionsDiv.appendChild(deleteBtn);
 
         item.appendChild(checkbox);
         item.appendChild(wrapper);
-        item.appendChild(deleteBtn);
+        item.appendChild(actionsDiv);
 
         return item;
     }
@@ -565,22 +620,26 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!response.ok) throw new Error('Failed to update task');
 
-            // Refresh logic to respect filters
             fetchTasks();
 
         } catch (error) {
             console.error('Error updating task:', error);
+            showToast('Failed to update task', 'error');
         }
     }
 
     function editTaskContent(taskId, contentElement) {
+        // Prevent re-entry if already editing (check if child is input)
+        if (contentElement.querySelector('input')) return;
+
         const currentText = contentElement.textContent;
         const input = document.createElement('input');
         input.type = 'text';
         input.className = 'task-content-input';
         input.value = currentText;
 
-        contentElement.replaceWith(input);
+        contentElement.innerHTML = '';
+        contentElement.appendChild(input);
         input.focus();
 
         const saveChanges = async () => {
@@ -594,14 +653,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     if (!response.ok) throw new Error('Failed to save content');
                     contentElement.textContent = newContent;
+                    showToast('Task updated', 'success');
                 } catch (error) {
                     console.error('Error saving content:', error);
-                    contentElement.textContent = currentText; // Revert on error
+                    contentElement.textContent = currentText;
+                    showToast('Failed to save task content', 'error');
                 }
             } else {
-                contentElement.textContent = currentText; // Revert if empty or unchanged
+                contentElement.textContent = currentText;
             }
-            input.replaceWith(contentElement);
         };
 
         input.addEventListener('blur', saveChanges);
@@ -610,7 +670,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 input.blur();
             } else if (e.key === 'Escape') {
                 contentElement.textContent = currentText;
-                input.replaceWith(contentElement);
             }
         });
     }
@@ -623,11 +682,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
             if (!response.ok) throw new Error('Failed to delete task');
 
-            fetchTasks(); // Refresh to respect sorting/groups
+            fetchTasks();
+            showToast('Task deleted', 'success');
 
         } catch (error) {
             console.error('Error deleting task:', error);
-            alert('Could not delete the task.');
+            showToast('Could not delete the task', 'error');
         }
     }
 
