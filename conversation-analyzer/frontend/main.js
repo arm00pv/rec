@@ -1,5 +1,6 @@
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM Elements ---
+    const themeToggleBtn = document.getElementById('theme-toggle');
     const startRecognitionBtn = document.getElementById('start-recognition-btn');
     const stopRecognitionBtn = document.getElementById('stop-recognition-btn');
     const analyzeBtn = document.getElementById('analyze-btn');
@@ -14,19 +15,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const mermaidDiagramContainer = document.getElementById('mermaid-diagram');
 
     const taskListContainer = document.getElementById('task-list-container');
-    const loadingTasks = document.getElementById('loading-tasks'); // Note: This element ID might have been removed/changed in HTML
     const filterStatus = document.getElementById('filter-status');
     const filterPriority = document.getElementById('filter-priority');
 
     const noteListContainer = document.getElementById('note-list-container');
-    const loadingNotes = document.getElementById('loading-notes'); // Note: This might be removed in HTML
     const noteListView = document.getElementById('note-list-view');
     const noteDetailView = document.getElementById('note-detail-view');
     const noteDetailContent = document.getElementById('note-detail-content');
+    const noteEditForm = document.getElementById('note-edit-form');
     const backToNotesBtn = document.getElementById('back-to-notes-btn');
-    const noteSearchInput = document.getElementById('note-search-input');
+    const editNoteBtn = document.getElementById('edit-note-btn');
     const exportNoteBtn = document.getElementById('export-note-btn');
+    const noteSearchInput = document.getElementById('note-search-input');
     const toastContainer = document.getElementById('toast-container');
+    const modalContainer = document.getElementById('modal-container');
 
     const tabs = document.querySelectorAll('.tab-link');
     const contents = document.querySelectorAll('.tab-content');
@@ -38,6 +40,61 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDiagramCode = '';
     let allNotes = [];
     let currentViewingNote = null;
+
+    // --- Theme Logic ---
+    function initTheme() {
+        const storedTheme = localStorage.getItem('theme');
+        if (storedTheme === 'dark') {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
+        } else {
+            document.documentElement.removeAttribute('data-theme');
+            themeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
+        }
+    }
+
+    themeToggleBtn.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        if (currentTheme === 'dark') {
+            document.documentElement.removeAttribute('data-theme');
+            localStorage.setItem('theme', 'light');
+            themeToggleBtn.innerHTML = '<i class="fas fa-moon"></i>';
+        } else {
+            document.documentElement.setAttribute('data-theme', 'dark');
+            localStorage.setItem('theme', 'dark');
+            themeToggleBtn.innerHTML = '<i class="fas fa-sun"></i>';
+        }
+    });
+
+    initTheme();
+
+    // --- Modal Utility ---
+    function showConfirmModal(message, onConfirm) {
+        modalContainer.innerHTML = `
+            <div class="modal-overlay">
+                <div class="modal">
+                    <h3>Confirm Action</h3>
+                    <p>${message}</p>
+                    <div class="modal-actions">
+                        <button class="secondary-btn small-btn" id="modal-cancel-btn">Cancel</button>
+                        <button class="primary-btn small-btn" id="modal-confirm-btn">Confirm</button>
+                    </div>
+                </div>
+            </div>
+        `;
+        modalContainer.classList.remove('hidden');
+
+        document.getElementById('modal-cancel-btn').addEventListener('click', () => {
+            modalContainer.classList.add('hidden');
+            modalContainer.innerHTML = '';
+        });
+
+        document.getElementById('modal-confirm-btn').addEventListener('click', () => {
+            modalContainer.classList.add('hidden');
+            modalContainer.innerHTML = '';
+            onConfirm();
+        });
+    }
 
     // --- Utilities ---
     function showToast(message, type = 'info') {
@@ -92,6 +149,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 fetchNotes();
                 noteListView.classList.remove('hidden');
                 noteDetailView.classList.add('hidden');
+                noteEditForm.classList.add('hidden'); // Ensure edit form is hidden
             }
         });
     });
@@ -348,7 +406,7 @@ document.addEventListener('DOMContentLoaded', () => {
             deleteBtn.title = 'Delete Note';
             deleteBtn.onclick = (e) => {
                 e.stopPropagation();
-                deleteNote(note.id, noteEl);
+                showConfirmModal('Are you sure you want to delete this note?', () => deleteNote(note.id, noteEl));
             };
 
             noteEl.appendChild(summaryDiv);
@@ -372,7 +430,6 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     async function deleteNote(noteId, element) {
-        if (!confirm('Delete this note?')) return;
         try {
             const response = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
             if (response.ok) {
@@ -393,6 +450,8 @@ document.addEventListener('DOMContentLoaded', () => {
         currentViewingNote = note;
         noteListView.classList.add('hidden');
         noteDetailView.classList.remove('hidden');
+        noteDetailContent.classList.remove('hidden');
+        noteEditForm.classList.add('hidden');
 
         noteDetailContent.innerHTML = `
             <h2>${note.title || 'Untitled'}</h2>
@@ -406,7 +465,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             <div class="analysis-section">
                 <h3>Transcript</h3>
-                <p>${note.content}</p>
+                <p style="white-space: pre-wrap;">${note.content}</p>
             </div>
             ${note.diagram_code ? `
             <div class="analysis-section">
@@ -424,6 +483,75 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
     }
+
+    // Edit Note Logic
+    editNoteBtn.addEventListener('click', () => {
+        if (!currentViewingNote) return;
+
+        // Hide content, Show Edit Form
+        noteDetailContent.classList.add('hidden');
+        noteEditForm.classList.remove('hidden');
+
+        noteEditForm.innerHTML = `
+            <div class="edit-note-form">
+                <h3>Edit Note</h3>
+                <label>Title</label>
+                <input type="text" id="edit-note-title" value="${currentViewingNote.title || ''}">
+
+                <label>Summary</label>
+                <textarea id="edit-note-summary" rows="3">${currentViewingNote.summary || ''}</textarea>
+
+                <label>Transcript</label>
+                <textarea id="edit-note-content" rows="10">${currentViewingNote.content || ''}</textarea>
+
+                <div class="modal-actions">
+                    <button class="secondary-btn small-btn" id="cancel-edit-btn">Cancel</button>
+                    <button class="primary-btn small-btn" id="save-edit-btn">Save Changes</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('cancel-edit-btn').addEventListener('click', () => {
+            noteEditForm.classList.add('hidden');
+            noteDetailContent.classList.remove('hidden');
+        });
+
+        document.getElementById('save-edit-btn').addEventListener('click', async () => {
+            const updatedTitle = document.getElementById('edit-note-title').value;
+            const updatedSummary = document.getElementById('edit-note-summary').value;
+            const updatedContent = document.getElementById('edit-note-content').value;
+
+            try {
+                const response = await fetch(`/api/notes/${currentViewingNote.id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title: updatedTitle,
+                        summary: updatedSummary,
+                        content: updatedContent
+                        // Not updating diagram code for simplicity here, but could be added
+                    })
+                });
+
+                if (!response.ok) throw new Error('Update failed');
+
+                const updatedNote = await response.json();
+
+                // Update local state
+                currentViewingNote = updatedNote;
+                // Update in allNotes array
+                const index = allNotes.findIndex(n => n.id === updatedNote.id);
+                if (index !== -1) allNotes[index] = updatedNote;
+
+                showToast('Note updated successfully', 'success');
+                viewNoteDetail(updatedNote); // Refresh view
+
+            } catch (error) {
+                console.error('Error updating note:', error);
+                showToast('Failed to update note', 'error');
+            }
+        });
+    });
 
     exportNoteBtn.addEventListener('click', () => {
         if (!currentViewingNote) return;
@@ -460,6 +588,7 @@ document.addEventListener('DOMContentLoaded', () => {
         noteDetailView.classList.add('hidden');
         noteListView.classList.remove('hidden');
         currentViewingNote = null;
+        fetchNotes(); // Refresh list to update titles/summaries
     });
 
     // --- Task Management ---
@@ -675,20 +804,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function deleteTask(taskId) {
-        if (!confirm('Are you sure you want to delete this task?')) {
-            return;
-        }
-        try {
-            const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
-            if (!response.ok) throw new Error('Failed to delete task');
+        showConfirmModal('Are you sure you want to delete this task?', async () => {
+            try {
+                const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('Failed to delete task');
 
-            fetchTasks();
-            showToast('Task deleted', 'success');
+                fetchTasks();
+                showToast('Task deleted', 'success');
 
-        } catch (error) {
-            console.error('Error deleting task:', error);
-            showToast('Could not delete the task', 'error');
-        }
+            } catch (error) {
+                console.error('Error deleting task:', error);
+                showToast('Could not delete the task', 'error');
+            }
+        });
     }
 
     function formatDate(dateString) {

@@ -15,6 +15,25 @@
     --light-gray: #f1f1f1;
     --toast-bg-color: #323232;
     --toast-text-color: #ffffff;
+    --modal-overlay: rgba(0,0,0,0.5);
+}
+
+:root[data-theme="dark"] {
+    --primary-color: #3b82f6;
+    --primary-hover: #2563eb;
+    --secondary-color: #9ca3af;
+    --secondary-hover: #d1d5db;
+    --background-color: #111827;
+    --surface-color: #1f2937;
+    --text-color: #f3f4f6;
+    --border-color: #374151;
+    --success-color: #10b981;
+    --danger-color: #ef4444;
+    --warning-color: #f59e0b;
+    --light-gray: #374151; /* Used for item backgrounds */
+    --toast-bg-color: #374151;
+    --toast-text-color: #f3f4f6;
+    --modal-overlay: rgba(0,0,0,0.7);
 }
 
 body {
@@ -27,6 +46,7 @@ body {
     justify-content: center;
     align-items: flex-start;
     min-height: 100vh;
+    transition: background-color 0.3s, color 0.3s;
 }
 
 .container {
@@ -36,12 +56,17 @@ body {
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.1);
     overflow: hidden;
+    transition: background-color 0.3s;
 }
 
 header {
     padding: 20px;
     background-color: var(--primary-color);
     color: white;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    position: relative;
 }
 
 header h1 {
@@ -51,10 +76,28 @@ header h1 {
     padding-bottom: 15px;
 }
 
+.theme-toggle {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    background: none;
+    border: none;
+    color: white;
+    font-size: 20px;
+    cursor: pointer;
+    opacity: 0.8;
+    transition: opacity 0.2s;
+}
+
+.theme-toggle:hover {
+    opacity: 1;
+}
+
 .tabs {
     display: flex;
     justify-content: center;
     background-color: var(--primary-hover);
+    width: 100%;
 }
 
 .tab-link {
@@ -120,6 +163,8 @@ main {
     width: 100%;
     padding: 15px;
     border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
     border-radius: 5px;
     font-family: inherit;
     font-size: 16px;
@@ -215,6 +260,8 @@ main {
     width: 100%;
     padding: 8px;
     border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
     border-radius: 4px;
     font-family: inherit;
     box-sizing: border-box;
@@ -260,6 +307,8 @@ main {
     padding: 5px;
     border-radius: 4px;
     border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
     margin-left: 5px;
 }
 
@@ -313,6 +362,16 @@ main {
     flex-grow: 1;
     cursor: text;
     margin-right: 10px;
+}
+
+.task-content-input {
+    flex-grow: 1;
+    padding: 5px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border-radius: 4px;
+    font-size: 16px;
 }
 
 .task-meta {
@@ -376,6 +435,8 @@ main {
     padding: 10px;
     font-size: 16px;
     border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
     border-radius: 5px;
     box-sizing: border-box;
 }
@@ -393,7 +454,7 @@ main {
 }
 
 .note-item:hover {
-    background: #e2e6ea;
+    background: var(--border-color); /* Slightly darker than light-gray */
 }
 
 .note-summary {
@@ -422,8 +483,26 @@ main {
     margin-bottom: 20px;
 }
 
+.detail-actions {
+    display: flex;
+    gap: 10px;
+}
+
 #note-detail-content .analysis-section {
     margin-top: 20px;
+}
+
+/* Edit Note UI */
+.edit-note-form input, .edit-note-form textarea {
+    width: 100%;
+    padding: 10px;
+    margin-bottom: 15px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    border-radius: 5px;
+    box-sizing: border-box;
+    font-family: inherit;
 }
 
 /* Empty States */
@@ -505,6 +584,46 @@ main {
 
 @keyframes slideOut {
     to { opacity: 0; transform: translateY(20px); }
+}
+
+/* Custom Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--modal-overlay);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal {
+    background-color: var(--surface-color);
+    padding: 25px;
+    border-radius: 8px;
+    width: 90%;
+    max-width: 400px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.modal h3 {
+    margin-top: 0;
+    margin-bottom: 15px;
+}
+
+.modal p {
+    color: var(--text-color);
+    margin-bottom: 25px;
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
 }
 
 .hidden {

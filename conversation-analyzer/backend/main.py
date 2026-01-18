@@ -244,6 +244,27 @@ def add_note():
     db.session.commit()
     return jsonify(new_note.to_dict()), 201
 
+@app.route("/api/notes/<int:note_id>", methods=["PUT"])
+def update_note(note_id):
+    note = db.session.get(Note, note_id)
+    if note is None:
+        return "Note not found", 404
+
+    if not request.json:
+        return "Invalid request", 400
+
+    if 'content' in request.json:
+        note.content = request.json['content']
+    if 'title' in request.json:
+        note.title = request.json['title']
+    if 'summary' in request.json:
+        note.summary = request.json['summary']
+    if 'diagram_code' in request.json:
+        note.diagram_code = request.json['diagram_code']
+
+    db.session.commit()
+    return jsonify(note.to_dict())
+
 @app.route("/api/notes/<int:note_id>", methods=["DELETE"])
 def delete_note(note_id):
     note = db.session.get(Note, note_id)

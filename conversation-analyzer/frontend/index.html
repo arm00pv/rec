@@ -13,6 +13,9 @@
     <div class="container">
         <header>
             <h1>Conversation Analyzer</h1>
+            <button id="theme-toggle" class="theme-toggle" title="Toggle Dark Mode">
+                <i class="fas fa-moon"></i>
+            </button>
             <div class="tabs">
                 <button class="tab-link active" data-tab="record-tab">Note Taking</button>
                 <button class="tab-link" data-tab="notes-tab">Saved Notes</button>
@@ -93,10 +96,16 @@
                 <div id="note-detail-view" class="hidden">
                     <div class="detail-header">
                         <button id="back-to-notes-btn" class="secondary-btn small-btn"><i class="fas fa-arrow-left"></i> Back</button>
-                        <button id="export-note-btn" class="secondary-btn small-btn"><i class="fas fa-download"></i> Export Markdown</button>
+                        <div class="detail-actions">
+                            <button id="edit-note-btn" class="primary-btn small-btn"><i class="fas fa-edit"></i> Edit</button>
+                            <button id="export-note-btn" class="secondary-btn small-btn"><i class="fas fa-download"></i> Export</button>
+                        </div>
                     </div>
                     <div id="note-detail-content">
                         <!-- Note content will be loaded here -->
+                    </div>
+                    <div id="note-edit-form" class="hidden edit-note-form">
+                        <!-- Edit form injected here -->
                     </div>
                 </div>
             </div>
@@ -133,7 +142,11 @@
         </main>
     </div>
 
+    <!-- Toast Container -->
     <div id="toast-container"></div>
+
+    <!-- Modal Container -->
+    <div id="modal-container" class="hidden"></div>
 
     <script src="main.js"></script>
     <script>
