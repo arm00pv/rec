@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const transcriptionText = document.getElementById('transcription-text');
 
     const analysisResult = document.getElementById('analysis-result');
+    const analysisTitleInput = document.getElementById('analysis-title');
+    const analysisSummaryInput = document.getElementById('analysis-summary');
     const newTasksList = document.getElementById('new-tasks-list');
     const addToTasksBtn = document.getElementById('add-to-tasks-btn');
     const saveNoteBtn = document.getElementById('save-note-btn');
@@ -13,12 +15,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const taskListContainer = document.getElementById('task-list-container');
     const loadingTasks = document.getElementById('loading-tasks');
+    const filterStatus = document.getElementById('filter-status');
+    const filterPriority = document.getElementById('filter-priority');
+
     const noteListContainer = document.getElementById('note-list-container');
     const loadingNotes = document.getElementById('loading-notes');
     const noteListView = document.getElementById('note-list-view');
     const noteDetailView = document.getElementById('note-detail-view');
     const noteDetailContent = document.getElementById('note-detail-content');
     const backToNotesBtn = document.getElementById('back-to-notes-btn');
+    const noteSearchInput = document.getElementById('note-search-input');
+    const exportNoteBtn = document.getElementById('export-note-btn');
 
     const tabs = document.querySelectorAll('.tab-link');
     const contents = document.querySelectorAll('.tab-content');
@@ -28,6 +35,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let isRecording = false;
     let analyzedTasks = [];
     let currentDiagramCode = '';
+    let allNotes = [];
+    let currentViewingNote = null;
 
     // --- Tab Navigation ---
     tabs.forEach(tab => {
@@ -147,6 +156,10 @@ document.addEventListener('DOMContentLoaded', () => {
     async function displayAnalysisResult(result) {
         analysisResult.classList.remove('hidden');
 
+        // Populate Title and Summary
+        analysisTitleInput.value = result.title || "Untitled Note";
+        analysisSummaryInput.value = result.summary || "";
+
         // Render Tasks
         newTasksList.innerHTML = '';
         analyzedTasks = result.tasks || [];
@@ -220,13 +233,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const content = transcriptionText.value.trim();
         if (!content) return;
 
+        const title = analysisTitleInput.value.trim() || "Untitled Note";
+        const summary = analysisSummaryInput.value.trim();
+
         try {
             const response = await fetch('/api/notes', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     content: content,
-                    diagram_code: currentDiagramCode
+                    diagram_code: currentDiagramCode,
+                    title: title,
+                    summary: summary
                 })
             });
 
@@ -248,39 +266,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/notes');
             if (!response.ok) throw new Error('Failed to fetch notes');
 
-            const notes = await response.json();
+            allNotes = await response.json(); // Store all notes for filtering
             loadingNotes.classList.add('hidden');
 
-            if (notes.length === 0) {
-                noteListContainer.innerHTML = '<p>No saved notes.</p>';
-                return;
-            }
-
-            noteListContainer.innerHTML = ''; // Clear loading
-            notes.forEach(note => {
-                const noteEl = document.createElement('div');
-                noteEl.className = 'note-item';
-
-                const summary = document.createElement('div');
-                summary.className = 'note-summary';
-                const date = new Date(note.created_at).toLocaleString();
-                const preview = note.content.substring(0, 50) + (note.content.length > 50 ? '...' : '');
-                summary.innerHTML = `<span class="note-date">${date}</span><span class="note-preview">${preview}</span>`;
-
-                const deleteBtn = document.createElement('button');
-                deleteBtn.className = 'delete-btn';
-                deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
-                deleteBtn.onclick = (e) => {
-                    e.stopPropagation();
-                    deleteNote(note.id, noteEl);
-                };
-
-                noteEl.appendChild(summary);
-                noteEl.appendChild(deleteBtn);
-                noteEl.onclick = () => viewNoteDetail(note);
-
-                noteListContainer.appendChild(noteEl);
-            });
+            renderNotesList(allNotes);
 
         } catch (error) {
             console.error('Error fetching notes:', error);
@@ -289,11 +278,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function renderNotesList(notes) {
+        noteListContainer.innerHTML = '';
+        if (notes.length === 0) {
+            noteListContainer.innerHTML = '<p>No saved notes found.</p>';
+            return;
+        }
+
+        notes.forEach(note => {
+            const noteEl = document.createElement('div');
+            noteEl.className = 'note-item';
+
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = 'note-summary';
+
+            const date = new Date(note.created_at).toLocaleString();
+            const title = note.title || "Untitled";
+            const summaryText = note.summary || note.content.substring(0, 50) + "...";
+
+            summaryDiv.innerHTML = `
+                <span class="note-date">${date}</span>
+                <strong style="display:block; font-size:1.1em; margin-bottom:5px;">${title}</strong>
+                <span class="note-preview">${summaryText}</span>
+            `;
+
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'delete-btn';
+            deleteBtn.innerHTML = '<i class="fas fa-trash-alt"></i>';
+            deleteBtn.onclick = (e) => {
+                e.stopPropagation();
+                deleteNote(note.id, noteEl);
+            };
+
+            noteEl.appendChild(summaryDiv);
+            noteEl.appendChild(deleteBtn);
+            noteEl.onclick = () => viewNoteDetail(note);
+
+            noteListContainer.appendChild(noteEl);
+        });
+    }
+
+    // Search Notes
+    noteSearchInput.addEventListener('input', (e) => {
+        const term = e.target.value.toLowerCase();
+        const filtered = allNotes.filter(note => {
+            const title = (note.title || '').toLowerCase();
+            const content = (note.content || '').toLowerCase();
+            const summary = (note.summary || '').toLowerCase();
+            return title.includes(term) || content.includes(term) || summary.includes(term);
+        });
+        renderNotesList(filtered);
+    });
+
     async function deleteNote(noteId, element) {
         if (!confirm('Delete this note?')) return;
         try {
             const response = await fetch(`/api/notes/${noteId}`, { method: 'DELETE' });
             if (response.ok) {
+                // remove from allNotes array too
+                allNotes = allNotes.filter(n => n.id !== noteId);
                 element.remove();
             }
         } catch (error) {
@@ -302,10 +345,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function viewNoteDetail(note) {
+        currentViewingNote = note;
         noteListView.classList.add('hidden');
         noteDetailView.classList.remove('hidden');
 
         noteDetailContent.innerHTML = `
+            <h2>${note.title || 'Untitled'}</h2>
+            <p class="note-date">Created: ${new Date(note.created_at).toLocaleString()}</p>
+
+            ${note.summary ? `
+            <div class="analysis-section">
+                <h3>Summary</h3>
+                <p>${note.summary}</p>
+            </div>` : ''}
+
             <div class="analysis-section">
                 <h3>Transcript</h3>
                 <p>${note.content}</p>
@@ -327,12 +380,48 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    exportNoteBtn.addEventListener('click', () => {
+        if (!currentViewingNote) return;
+        const note = currentViewingNote;
+        const dateStr = new Date(note.created_at).toISOString().split('T')[0];
+        const filename = `note_${dateStr}_${note.id}.md`;
+
+        let markdown = `# ${note.title || 'Untitled'}\n\n`;
+        markdown += `**Date:** ${new Date(note.created_at).toLocaleString()}\n\n`;
+
+        if (note.summary) {
+            markdown += `## Summary\n${note.summary}\n\n`;
+        }
+
+        markdown += `## Transcript\n${note.content}\n\n`;
+
+        if (note.diagram_code) {
+            markdown += `## Diagram\n\`\`\`mermaid\n${note.diagram_code}\n\`\`\`\n`;
+        }
+
+        const blob = new Blob([markdown], { type: 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    });
+
     backToNotesBtn.addEventListener('click', () => {
         noteDetailView.classList.add('hidden');
         noteListView.classList.remove('hidden');
+        currentViewingNote = null;
     });
 
-    // --- Task Management (Existing Logic) ---
+    // --- Task Management ---
+
+    // Filters
+    filterStatus.addEventListener('change', fetchTasks);
+    filterPriority.addEventListener('change', fetchTasks);
+
     async function fetchTasks() {
         try {
             loadingTasks.classList.remove('hidden');
@@ -345,28 +434,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const taskGroups = await response.json();
 
             loadingTasks.classList.add('hidden');
+            taskListContainer.innerHTML = '';
 
             if (taskGroups.length === 0) {
                 taskListContainer.innerHTML = '<p>No tasks found.</p>';
                 return;
             }
 
-            taskListContainer.innerHTML = ''; // Clear "loading" message
+            const statusFilter = filterStatus.value;
+            const priorityFilter = filterPriority.value;
+
+            let hasVisibleTasks = false;
+
             taskGroups.forEach(group => {
-                const groupEl = document.createElement('div');
-                groupEl.className = 'task-group';
+                // Filter tasks inside group
+                const filteredTasks = group.tasks.filter(task => {
+                    let statusMatch = true;
+                    if (statusFilter === 'active') statusMatch = !task.done;
+                    if (statusFilter === 'done') statusMatch = task.done;
 
-                const dateEl = document.createElement('h3');
-                dateEl.textContent = formatDate(group.date);
-                groupEl.appendChild(dateEl);
+                    let priorityMatch = true;
+                    if (priorityFilter !== 'all') {
+                        priorityMatch = (task.priority === priorityFilter);
+                    }
 
-                group.tasks.forEach(task => {
-                    const taskEl = createTaskElement(task);
-                    groupEl.appendChild(taskEl);
+                    return statusMatch && priorityMatch;
                 });
 
-                taskListContainer.appendChild(groupEl);
+                if (filteredTasks.length > 0) {
+                    hasVisibleTasks = true;
+                    const groupEl = document.createElement('div');
+                    groupEl.className = 'task-group';
+
+                    const dateEl = document.createElement('h3');
+                    dateEl.textContent = formatDate(group.date);
+                    groupEl.appendChild(dateEl);
+
+                    filteredTasks.forEach(task => {
+                        const taskEl = createTaskElement(task);
+                        groupEl.appendChild(taskEl);
+                    });
+
+                    taskListContainer.appendChild(groupEl);
+                }
             });
+
+            if (!hasVisibleTasks) {
+                taskListContainer.innerHTML = '<p>No tasks match your filters.</p>';
+            }
 
         } catch (error) {
             console.error('Error fetching tasks:', error);
@@ -403,35 +518,31 @@ document.addEventListener('DOMContentLoaded', () => {
         if (task.due_date) {
             const dateSpan = document.createElement('span');
             dateSpan.className = 'due-date';
-            dateSpan.innerHTML = `<i class="far fa-calendar-alt"></i> ${task.due_date}`;
+
+            // Check overdue
+            if (!task.done && new Date(task.due_date) < new Date().setHours(0,0,0,0)) {
+                dateSpan.classList.add('overdue');
+                dateSpan.innerHTML = `<i class="far fa-calendar-times"></i> ${task.due_date} (Overdue)`;
+            } else {
+                dateSpan.innerHTML = `<i class="far fa-calendar-alt"></i> ${task.due_date}`;
+            }
             meta.appendChild(dateSpan);
         }
 
         content.innerHTML = contentHtml;
-        if (meta.children.length > 0) {
-            // If we have meta info, wrap content and meta in a column layout or just append
-            // For simplicity, let's just append meta after content text but inside the span if we want it inline,
-            // or modify the flex layout. Let's modify the item layout slightly.
-            // Actually, let's put content and meta in a wrapper
-            const wrapper = document.createElement('div');
-            wrapper.style.flexGrow = '1';
 
-            const textDiv = document.createElement('div');
-            textDiv.textContent = task.content;
-            textDiv.style.marginBottom = '5px';
-            textDiv.addEventListener('dblclick', () => editTaskContent(task.id, textDiv));
+        const wrapper = document.createElement('div');
+        wrapper.style.flexGrow = '1';
 
-            wrapper.appendChild(textDiv);
-            wrapper.appendChild(meta);
+        const textDiv = document.createElement('div');
+        textDiv.textContent = task.content;
+        textDiv.style.marginBottom = '5px';
+        textDiv.addEventListener('dblclick', () => editTaskContent(task.id, textDiv));
 
-            // Replace the simple content span with our wrapper
-            content.replaceWith(wrapper);
-            // Note: toggleTaskDone relies on item structure, but it targets item class.
-            // editTaskContent relies on passed element.
-        } else {
-             content.textContent = task.content;
-             content.addEventListener('dblclick', () => editTaskContent(task.id, content));
-        }
+        wrapper.appendChild(textDiv);
+        wrapper.appendChild(meta);
+
+        content.replaceWith(wrapper);
 
         const deleteBtn = document.createElement('button');
         deleteBtn.className = 'delete-btn';
@@ -439,11 +550,7 @@ document.addEventListener('DOMContentLoaded', () => {
         deleteBtn.addEventListener('click', () => deleteTask(task.id));
 
         item.appendChild(checkbox);
-        if (meta.children.length > 0) {
-             // Already appended wrapper above
-        } else {
-            item.appendChild(content);
-        }
+        item.appendChild(wrapper);
         item.appendChild(deleteBtn);
 
         return item;
@@ -458,15 +565,8 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             if (!response.ok) throw new Error('Failed to update task');
 
-            // Visually move the task
-            const taskItem = document.querySelector(`.task-item[data-task-id='${taskId}']`);
-            taskItem.classList.toggle('done', isDone);
-            const taskGroup = taskItem.parentElement;
-            if (isDone) {
-                taskGroup.appendChild(taskItem); // Move to bottom
-            } else {
-                taskGroup.insertBefore(taskItem, taskGroup.querySelector('.task-item.done')); // Move above completed
-            }
+            // Refresh logic to respect filters
+            fetchTasks();
 
         } catch (error) {
             console.error('Error updating task:', error);
@@ -523,8 +623,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/api/tasks/${taskId}`, { method: 'DELETE' });
             if (!response.ok) throw new Error('Failed to delete task');
 
-            const taskItem = document.querySelector(`.task-item[data-task-id='${taskId}']`);
-            taskItem.remove();
+            fetchTasks(); // Refresh to respect sorting/groups
+
         } catch (error) {
             console.error('Error deleting task:', error);
             alert('Could not delete the task.');

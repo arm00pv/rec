@@ -182,6 +182,27 @@ main {
     color: var(--secondary-color);
 }
 
+/* Meta fields (Title, Summary) */
+.meta-field {
+    margin-bottom: 15px;
+}
+.meta-field label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: 500;
+}
+.meta-field input, .meta-field textarea {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.meta-field textarea {
+    resize: vertical;
+}
+
 #new-tasks-list {
     list-style-type: none;
     padding: 0;
@@ -202,6 +223,26 @@ main {
 }
 
 /* Tasks Tab */
+.task-filters {
+    background: var(--light-gray);
+    padding: 15px;
+    border-radius: 5px;
+    margin-bottom: 20px;
+    display: flex;
+    gap: 20px;
+}
+
+.task-filters label {
+    font-weight: 500;
+}
+
+.task-filters select {
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    margin-left: 5px;
+}
+
 #task-list-container {
     max-height: 500px;
     overflow-y: auto;
@@ -277,6 +318,11 @@ main {
     white-space: nowrap;
 }
 
+.due-date.overdue {
+    color: var(--danger-color);
+    font-weight: 500;
+}
+
 .delete-btn {
     background: none;
     border: none;
@@ -298,6 +344,18 @@ main {
 }
 
 /* Notes Tab */
+.search-bar {
+    margin-bottom: 20px;
+}
+.search-bar input {
+    width: 100%;
+    padding: 10px;
+    font-size: 16px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    box-sizing: border-box;
+}
+
 .note-item {
     background: var(--light-gray);
     padding: 15px;
@@ -333,7 +391,9 @@ main {
     padding-top: 10px;
 }
 
-#back-to-notes-btn {
+.detail-header {
+    display: flex;
+    justify-content: space-between;
     margin-bottom: 20px;
 }
 

@@ -44,6 +44,8 @@ class Task(db.Model):
 
 class Note(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    title = db.Column(db.String(100), nullable=True)
+    summary = db.Column(db.Text, nullable=True)
     content = db.Column(db.Text, nullable=False)
     diagram_code = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.String(30), nullable=False)
@@ -51,6 +53,8 @@ class Note(db.Model):
     def to_dict(self):
         return {
             "id": self.id,
+            "title": self.title,
+            "summary": self.summary,
             "content": self.content,
             "diagram_code": self.diagram_code,
             "created_at": self.created_at
@@ -90,14 +94,19 @@ def analyze_text():
             model = genai.GenerativeModel('gemini-1.5-flash')
 
             prompt = f"""
-            Analyze the following text and extract actionable tasks and create a Mermaid diagram representing the flow or concepts.
-            For each task, assign a priority (High, Medium, Low) and extract a due date (YYYY-MM-DD) if explicitly mentioned (otherwise null).
+            Analyze the following text.
+            1. Extract actionable tasks. For each task, assign a priority (High, Medium, Low) and extract a due date (YYYY-MM-DD) if explicitly mentioned (otherwise null).
+            2. Create a Mermaid diagram representing the flow or concepts.
+            3. Generate a short 'title' (max 5-7 words) for this note.
+            4. Generate a 'summary' (1-2 sentences) of the content.
 
             Text:
             {text}
 
             Return the result in the following JSON format ONLY (no markdown blocks):
             {{
+                "title": "Meeting about Project X",
+                "summary": "Discussed timeline and budget...",
                 "tasks": [
                     {{"content": "Task description...", "priority": "High", "due_date": "2023-10-27"}},
                     ...
@@ -121,6 +130,8 @@ def analyze_text():
             print(f"Error calling Gemini: {e}")
             # Fallback to mock response in case of error
             return jsonify({
+                "title": "Error Processing Analysis",
+                "summary": "Could not analyze text due to an error.",
                 "tasks": [
                     {"content": "Check API Key configuration", "priority": "High", "due_date": None},
                     {"content": "Review logs", "priority": "Medium", "due_date": None}
@@ -131,6 +142,8 @@ def analyze_text():
         # Mock response if no key provided
         print("No GOOGLE_API_KEY found. Using mock response.")
         return jsonify({
+            "title": "(Mock) Weekend Plans",
+            "summary": "Plan for the upcoming weekend including chores and events.",
             "tasks": [
                 {"content": "(Mock) Buy groceries", "priority": "Medium", "due_date": "2023-12-01"},
                 {"content": "(Mock) Call mom", "priority": "High", "due_date": None},
@@ -216,9 +229,17 @@ def add_note():
 
     content = request.json["content"]
     diagram_code = request.json.get("diagram_code")
+    title = request.json.get("title", "Untitled Note")
+    summary = request.json.get("summary", "")
     created_at = datetime.datetime.now().isoformat()
 
-    new_note = Note(content=content, diagram_code=diagram_code, created_at=created_at)
+    new_note = Note(
+        content=content,
+        diagram_code=diagram_code,
+        created_at=created_at,
+        title=title,
+        summary=summary
+    )
     db.session.add(new_note)
     db.session.commit()
     return jsonify(new_note.to_dict()), 201

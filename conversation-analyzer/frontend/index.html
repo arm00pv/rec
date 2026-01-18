@@ -49,6 +49,18 @@
                         <button id="save-note-btn" class="secondary-btn small-btn"><i class="fas fa-save"></i> Save Note</button>
                     </div>
 
+                    <div class="analysis-section" id="analysis-meta">
+                        <!-- Title and Summary will be injected here -->
+                        <div class="meta-field">
+                            <label for="analysis-title">Title:</label>
+                            <input type="text" id="analysis-title" placeholder="Note Title">
+                        </div>
+                        <div class="meta-field">
+                            <label for="analysis-summary">Summary:</label>
+                            <textarea id="analysis-summary" rows="2" placeholder="Summary..."></textarea>
+                        </div>
+                    </div>
+
                     <div class="analysis-section">
                         <h3>Identified Tasks</h3>
                         <ul id="new-tasks-list"></ul>
@@ -67,13 +79,19 @@
             <!-- Saved Notes Tab -->
             <div id="notes-tab" class="tab-content">
                 <div id="note-list-view">
+                    <div class="search-bar">
+                        <input type="text" id="note-search-input" placeholder="Search notes by title or content...">
+                    </div>
                     <div id="note-list-container">
                         <!-- Notes will be loaded here -->
                         <p id="loading-notes">Loading notes...</p>
                     </div>
                 </div>
                 <div id="note-detail-view" class="hidden">
-                    <button id="back-to-notes-btn" class="secondary-btn small-btn"><i class="fas fa-arrow-left"></i> Back</button>
+                    <div class="detail-header">
+                        <button id="back-to-notes-btn" class="secondary-btn small-btn"><i class="fas fa-arrow-left"></i> Back</button>
+                        <button id="export-note-btn" class="secondary-btn small-btn"><i class="fas fa-download"></i> Export Markdown</button>
+                    </div>
                     <div id="note-detail-content">
                         <!-- Note content will be loaded here -->
                     </div>
@@ -82,6 +100,25 @@
 
             <!-- Tasks Tab -->
             <div id="tasks-tab" class="tab-content">
+                <div class="task-filters">
+                    <label>
+                        Status:
+                        <select id="filter-status">
+                            <option value="all">All</option>
+                            <option value="active">Active</option>
+                            <option value="done">Completed</option>
+                        </select>
+                    </label>
+                    <label>
+                        Priority:
+                        <select id="filter-priority">
+                            <option value="all">All</option>
+                            <option value="High">High</option>
+                            <option value="Medium">Medium</option>
+                            <option value="Low">Low</option>
+                        </select>
+                    </label>
+                </div>
                 <div id="task-list-container">
                     <!-- Tasks will be loaded here -->
                     <p id="loading-tasks">Loading tasks...</p>
