@@ -119,6 +119,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // --- Utilities ---
+    function escapeHtml(text) {
+        if (!text) return '';
+        return text
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
+    }
+
     function showToast(message, type = 'info') {
         const toast = document.createElement('div');
         toast.className = `toast ${type}`;
@@ -355,9 +365,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof task === 'string') {
                     li.textContent = task;
                 } else {
-                    let content = `<strong>${task.content}</strong>`;
-                    if (task.priority) content += ` <span class="priority-badge priority-${task.priority.toLowerCase()}">${task.priority}</span>`;
-                    if (task.due_date) content += ` <span class="due-date"><i class="far fa-calendar-alt"></i> ${task.due_date}</span>`;
+                    let content = `<strong>${escapeHtml(task.content)}</strong>`;
+                    if (task.priority) content += ` <span class="priority-badge priority-${task.priority.toLowerCase()}">${escapeHtml(task.priority)}</span>`;
+                    if (task.due_date) content += ` <span class="due-date"><i class="far fa-calendar-alt"></i> ${escapeHtml(task.due_date)}</span>`;
                     li.innerHTML = content;
                 }
                 newTasksList.appendChild(li);
@@ -499,9 +509,9 @@ document.addEventListener('DOMContentLoaded', () => {
                      if (typeof task === 'string') {
                         li.textContent = task;
                     } else {
-                        let content = `<strong>${task.content}</strong>`;
-                        if (task.priority) content += ` <span class="priority-badge priority-${task.priority.toLowerCase()}">${task.priority}</span>`;
-                        if (task.due_date) content += ` <span class="due-date"><i class="far fa-calendar-alt"></i> ${task.due_date}</span>`;
+                        let content = `<strong>${escapeHtml(task.content)}</strong>`;
+                        if (task.priority) content += ` <span class="priority-badge priority-${task.priority.toLowerCase()}">${escapeHtml(task.priority)}</span>`;
+                        if (task.due_date) content += ` <span class="due-date"><i class="far fa-calendar-alt"></i> ${escapeHtml(task.due_date)}</span>`;
                         li.innerHTML = content;
                     }
                     newTasksList.appendChild(li);
@@ -577,7 +587,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const header = document.createElement('h3');
             header.className = 'kb-category-header';
-            header.innerHTML = `<i class="fas fa-folder"></i> ${cat} <span class="badge">${categories[cat].length}</span>`;
+            header.innerHTML = `<i class="fas fa-folder"></i> ${escapeHtml(cat)} <span class="badge">${categories[cat].length}</span>`;
 
             const list = document.createElement('div');
             list.className = 'kb-article-list';
@@ -585,7 +595,7 @@ document.addEventListener('DOMContentLoaded', () => {
             categories[cat].forEach(note => {
                 const item = document.createElement('div');
                 item.className = 'kb-article-item';
-                item.innerHTML = `<i class="fas fa-file-alt"></i> <span>${note.title || 'Untitled'}</span>`;
+                item.innerHTML = `<i class="fas fa-file-alt"></i> <span>${escapeHtml(note.title || 'Untitled')}</span>`;
                 item.onclick = () => {
                      // Switch to Notes tab and view detail
                      document.querySelector('[data-tab="notes-tab"]').click();
@@ -621,8 +631,8 @@ document.addEventListener('DOMContentLoaded', () => {
             summaryDiv.className = 'note-summary';
 
             const date = new Date(note.created_at).toLocaleString();
-            let title = note.title || "Untitled";
-            let summaryText = note.summary || note.content.substring(0, 50) + "...";
+            let title = escapeHtml(note.title || "Untitled");
+            let summaryText = escapeHtml(note.summary || note.content.substring(0, 50) + "...");
 
             // Apply highlighting
             if (highlightTerm) {
@@ -634,7 +644,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (note.tags) {
                 tagsHtml = '<div style="margin-top:5px;">' +
                     note.tags.split(',').map(tag => {
-                        let t = tag.trim();
+                        let t = escapeHtml(tag.trim());
                         if(highlightTerm) t = highlight(t, highlightTerm);
                         return `<span class="tag-badge">${t}</span>`;
                     }).join('') +
@@ -644,8 +654,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let metaHtml = '';
             if (note.sentiment || note.category) {
                 metaHtml = '<div style="margin-bottom:5px;">';
-                if (note.category) metaHtml += `<span class="category-pill">${note.category}</span>`;
-                if (note.sentiment) metaHtml += `<span class="sentiment-badge sentiment-${note.sentiment.toLowerCase()}">${note.sentiment}</span>`;
+                if (note.category) metaHtml += `<span class="category-pill">${escapeHtml(note.category)}</span>`;
+                if (note.sentiment) metaHtml += `<span class="sentiment-badge sentiment-${escapeHtml(note.sentiment.toLowerCase())}">${escapeHtml(note.sentiment)}</span>`;
                 metaHtml += '</div>';
             }
 
@@ -721,16 +731,21 @@ document.addEventListener('DOMContentLoaded', () => {
         let metaHtml = '';
         if (note.sentiment || note.category) {
             metaHtml = '<div style="margin-bottom:10px;">';
-            if (note.category) metaHtml += `<span class="category-pill">${note.category}</span>`;
-            if (note.sentiment) metaHtml += `<span class="sentiment-badge sentiment-${note.sentiment.toLowerCase()}">${note.sentiment}</span>`;
+            if (note.category) metaHtml += `<span class="category-pill">${escapeHtml(note.category)}</span>`;
+            if (note.sentiment) metaHtml += `<span class="sentiment-badge sentiment-${escapeHtml(note.sentiment.toLowerCase())}">${escapeHtml(note.sentiment)}</span>`;
             metaHtml += '</div>';
         }
 
         const safeSummary = (note.summary || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ');
         const safeContent = (note.content || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
 
+        // Escape content for display
+        const displayTitle = escapeHtml(note.title || 'Untitled');
+        const displaySummary = escapeHtml(note.summary || '');
+        const displayContent = escapeHtml(note.content || '');
+
         noteDetailContent.innerHTML = `
-            <h2>${note.title || 'Untitled'}</h2>
+            <h2>${displayTitle}</h2>
             <p class="note-date">Created: ${new Date(note.created_at).toLocaleString()}</p>
             ${metaHtml}
             ${tagsHtml}
@@ -738,12 +753,12 @@ document.addEventListener('DOMContentLoaded', () => {
             ${note.summary ? `
             <div class="analysis-section">
                 <h3>Summary <button class="action-icon-btn" onclick="speakText('${safeSummary}')" title="Read"><i class="fas fa-volume-up"></i></button></h3>
-                <p>${note.summary}</p>
+                <p>${displaySummary}</p>
             </div>` : ''}
 
             <div class="analysis-section">
                 <h3>Transcript <button class="action-icon-btn" onclick="copyToClipboard('${safeContent}')" title="Copy"><i class="fas fa-copy"></i></button></h3>
-                <p style="white-space: pre-wrap;">${note.content}</p>
+                <p style="white-space: pre-wrap;">${displayContent}</p>
             </div>
             ${note.diagram_code ? `
             <div class="analysis-section">
