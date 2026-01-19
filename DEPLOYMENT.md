@@ -46,6 +46,11 @@ We will deploy the application to `/var/www/conversation-analyzer`.
     sudo -u www-data python3 -m venv venv
     source venv/bin/activate
     pip install -r conversation-analyzer/backend/requirements.txt
+
+    # Initialize Database
+    export FLASK_APP=conversation-analyzer/backend/main.py
+    flask init-db
+
     deactivate
     ```
 
