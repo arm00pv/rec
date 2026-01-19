@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const newTasksList = document.getElementById('new-tasks-list');
     const addToTasksBtn = document.getElementById('add-to-tasks-btn');
     const saveNoteBtn = document.getElementById('save-note-btn');
+    const translateBtn = document.getElementById('translate-btn');
+    const translateLangSelect = document.getElementById('translate-lang-select');
     const mermaidDiagramContainer = document.getElementById('mermaid-diagram');
 
     const taskListContainer = document.getElementById('task-list-container');
@@ -359,6 +361,76 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Error saving note:', error);
             showToast('Failed to save note.', 'error');
+        }
+    });
+
+    // --- Translation Logic ---
+    translateBtn.addEventListener('click', async () => {
+        const title = analysisTitleInput.value.trim();
+        const summary = analysisSummaryInput.value.trim();
+        const content = transcriptionText.value.trim();
+        const targetLang = translateLangSelect.value;
+
+        if (!content && !summary) {
+            showToast('Nothing to translate.', 'info');
+            return;
+        }
+
+        const originalBtnText = translateBtn.innerHTML;
+        translateBtn.disabled = true;
+        translateBtn.innerHTML = '<div class="spinner" style="width:14px;height:14px;border-width:2px;margin:0;"></div>';
+
+        const payload = {
+            target_language: targetLang,
+            content: {
+                title: title,
+                summary: summary,
+                content: content,
+                tasks: analyzedTasks
+            }
+        };
+
+        try {
+            const response = await fetch('/api/translate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) throw new Error('Translation failed');
+
+            const result = await response.json();
+
+            // Update UI with translated content
+            if (result.title) analysisTitleInput.value = result.title;
+            if (result.summary) analysisSummaryInput.value = result.summary;
+            if (result.content) transcriptionText.value = result.content;
+
+            if (result.tasks) {
+                analyzedTasks = result.tasks; // Update local state
+                newTasksList.innerHTML = '';
+                analyzedTasks.forEach(task => {
+                    const li = document.createElement('li');
+                     if (typeof task === 'string') {
+                        li.textContent = task;
+                    } else {
+                        let content = `<strong>${task.content}</strong>`;
+                        if (task.priority) content += ` <span class="priority-badge priority-${task.priority.toLowerCase()}">${task.priority}</span>`;
+                        if (task.due_date) content += ` <span class="due-date"><i class="far fa-calendar-alt"></i> ${task.due_date}</span>`;
+                        li.innerHTML = content;
+                    }
+                    newTasksList.appendChild(li);
+                });
+            }
+
+            showToast(`Translated to ${targetLang}`, 'success');
+
+        } catch (error) {
+            console.error('Translation error:', error);
+            showToast('Translation failed.', 'error');
+        } finally {
+            translateBtn.disabled = false;
+            translateBtn.innerHTML = originalBtnText;
         }
     });
 

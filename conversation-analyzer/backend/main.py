@@ -152,6 +152,48 @@ def analyze_text():
             "diagram": "graph TD; A[Start] --> B{Is it sunny?}; B -- Yes --> C[Go outside]; B -- No --> D[Stay inside];"
         })
 
+# --- Translation Endpoint ---
+@app.route("/api/translate", methods=["POST"])
+def translate_content():
+    if not request.json or "content" not in request.json or "target_language" not in request.json:
+        return "Invalid request", 400
+
+    content = request.json["content"] # Expected to be a dict or string
+    target_language = request.json["target_language"]
+
+    api_key = os.environ.get('GOOGLE_API_KEY')
+    if not api_key:
+        return jsonify({"error": "No API Key configured"}), 500
+
+    try:
+        genai.configure(api_key=api_key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+
+        prompt = f"""
+        Translate the values in the following JSON object to {target_language}.
+        Do not translate keys like "id", "priority" (keep as High/Medium/Low if they are enums, or translate if display strings), "due_date", "diagram_code", or "created_at".
+        Only translate "title", "summary", "content", and "tasks" content.
+
+        Input JSON:
+        {json.dumps(content)}
+
+        Return ONLY the translated JSON object (no markdown).
+        """
+
+        response = model.generate_content(prompt)
+        response_text = response.text.strip()
+        if response_text.startswith("```json"):
+            response_text = response_text[7:]
+        if response_text.endswith("```"):
+            response_text = response_text[:-3]
+
+        result = json.loads(response_text)
+        return jsonify(result)
+
+    except Exception as e:
+        print(f"Translation error: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # --- Task API Endpoints ---
 @app.route("/api/tasks", methods=["GET"])
 def get_tasks():

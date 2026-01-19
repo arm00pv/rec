@@ -232,10 +232,32 @@ main {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 20px;
+    flex-wrap: wrap; /* allow wrapping on small screens */
+    gap: 10px;
 }
 
 .analysis-header h2 {
     margin: 0;
+}
+
+.header-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.translate-control {
+    display: flex;
+    gap: 5px;
+}
+
+.translate-control select {
+    padding: 5px;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    background-color: var(--surface-color);
+    color: var(--text-color);
+    font-size: 14px;
 }
 
 .analysis-section {
