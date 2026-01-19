@@ -3,6 +3,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggleBtn = document.getElementById('theme-toggle');
     const startRecognitionBtn = document.getElementById('start-recognition-btn');
     const stopRecognitionBtn = document.getElementById('stop-recognition-btn');
+    const audioFileInput = document.getElementById('audio-file-input');
+    const uploadAudioBtn = document.getElementById('upload-audio-btn');
     const recordingVisualizer = document.getElementById('recording-visualizer');
     const analyzeBtn = document.getElementById('analyze-btn');
     const transcriptionText = document.getElementById('transcription-text');
@@ -227,6 +229,54 @@ document.addEventListener('DOMContentLoaded', () => {
             recognition.stop();
         }
     }
+
+    // --- Audio File Upload Logic ---
+    audioFileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Reset UI
+        transcriptionText.value = '';
+        analysisResult.classList.add('hidden');
+
+        // Show loading state on label
+        const originalLabelContent = uploadAudioBtn.innerHTML;
+        uploadAudioBtn.innerHTML = '<div class="spinner" style="width:16px;height:16px;border-width:2px;margin:0;"></div> Uploading...';
+        uploadAudioBtn.style.pointerEvents = 'none';
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const response = await fetch('/api/analyze-audio', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                const err = await response.json();
+                throw new Error(err.error || 'Upload failed');
+            }
+
+            const result = await response.json();
+
+            // Populate text area with transcript if available
+            if (result.content) {
+                transcriptionText.value = result.content;
+            }
+
+            await displayAnalysisResult(result);
+            showToast('Audio analysis complete', 'success');
+
+        } catch (error) {
+            console.error('Audio upload error:', error);
+            showToast('Audio analysis failed: ' + error.message, 'error');
+        } finally {
+            uploadAudioBtn.innerHTML = originalLabelContent;
+            uploadAudioBtn.style.pointerEvents = 'auto';
+            audioFileInput.value = ''; // Reset input
+        }
+    });
 
     // --- Analysis Logic ---
     analyzeBtn.addEventListener('click', async () => {
@@ -457,12 +507,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function renderNotesList(notes) {
+    function renderNotesList(notes, highlightTerm = '') {
         noteListContainer.innerHTML = '';
         if (notes.length === 0) {
             showEmptyState(noteListContainer, 'No saved notes found.', 'fa-sticky-note');
             return;
         }
+
+        const highlight = (text, term) => {
+            if (!term || !text) return text;
+            const regex = new RegExp(`(${term})`, 'gi');
+            return text.replace(regex, '<mark>$1</mark>');
+        };
 
         notes.forEach(note => {
             const noteEl = document.createElement('div');
@@ -472,13 +528,23 @@ document.addEventListener('DOMContentLoaded', () => {
             summaryDiv.className = 'note-summary';
 
             const date = new Date(note.created_at).toLocaleString();
-            const title = note.title || "Untitled";
-            const summaryText = note.summary || note.content.substring(0, 50) + "...";
+            let title = note.title || "Untitled";
+            let summaryText = note.summary || note.content.substring(0, 50) + "...";
+
+            // Apply highlighting
+            if (highlightTerm) {
+                title = highlight(title, highlightTerm);
+                summaryText = highlight(summaryText, highlightTerm);
+            }
 
             let tagsHtml = '';
             if (note.tags) {
                 tagsHtml = '<div style="margin-top:5px;">' +
-                    note.tags.split(',').map(tag => `<span class="tag-badge">${tag.trim()}</span>`).join('') +
+                    note.tags.split(',').map(tag => {
+                        let t = tag.trim();
+                        if(highlightTerm) t = highlight(t, highlightTerm);
+                        return `<span class="tag-badge">${t}</span>`;
+                    }).join('') +
                     '</div>';
             }
 
@@ -513,9 +579,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = (note.title || '').toLowerCase();
             const content = (note.content || '').toLowerCase();
             const summary = (note.summary || '').toLowerCase();
-            return title.includes(term) || content.includes(term) || summary.includes(term);
+            const tags = (note.tags || '').toLowerCase();
+            return title.includes(term) || content.includes(term) || summary.includes(term) || tags.includes(term);
         });
-        renderNotesList(filtered);
+        renderNotesList(filtered, term);
     });
 
     async function deleteNote(noteId, element) {

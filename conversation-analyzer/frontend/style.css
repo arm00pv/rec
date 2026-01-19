@@ -16,6 +16,7 @@
     --toast-bg-color: #323232;
     --toast-text-color: #ffffff;
     --modal-overlay: rgba(0,0,0,0.5);
+    --highlight-color: #fff3cd; /* Light yellow */
 }
 
 :root[data-theme="dark"] {
@@ -34,6 +35,7 @@
     --toast-bg-color: #374151;
     --toast-text-color: #f3f4f6;
     --modal-overlay: rgba(0,0,0,0.7);
+    --highlight-color: #92400e; /* Darker orange/brown */
 }
 
 body {
@@ -153,6 +155,15 @@ main {
 
 .controls {
     margin-bottom: 20px;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+/* File Upload */
+.hidden-input {
+    display: none;
 }
 
 .transcription-container {
@@ -192,6 +203,7 @@ main {
     display: inline-flex;
     align-items: center;
     gap: 8px;
+    justify-content: center;
 }
 
 .primary-btn:active, .secondary-btn:active {
@@ -517,6 +529,14 @@ main {
 
 .note-preview {
     font-weight: 500;
+}
+
+/* Highlighting */
+mark {
+    background-color: var(--highlight-color);
+    color: inherit;
+    padding: 0 2px;
+    border-radius: 2px;
 }
 
 #note-detail-view {

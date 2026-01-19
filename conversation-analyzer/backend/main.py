@@ -196,6 +196,79 @@ def translate_content():
         print(f"Translation error: {e}")
         return jsonify({"error": str(e)}), 500
 
+# --- Audio Analysis Endpoint ---
+@app.route("/api/analyze-audio", methods=["POST"])
+def analyze_audio():
+    if 'file' not in request.files:
+        return "No file part", 400
+    file = request.files['file']
+    if file.filename == '':
+        return "No selected file", 400
+
+    # Save temp file
+    temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    file.save(temp_path)
+
+    api_key = os.environ.get('GOOGLE_API_KEY')
+
+    try:
+        if api_key:
+            genai.configure(api_key=api_key)
+            # Upload file to Gemini
+            audio_file = genai.upload_file(temp_path)
+
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            prompt = """
+            Analyze the audio recording.
+            1. Transcribe the main content into text.
+            2. Extract actionable tasks.
+            3. Generate a summary.
+            4. Create a Mermaid diagram code if applicable.
+            5. Create a title.
+
+            Return the result in the following JSON format ONLY (no markdown blocks):
+            {
+                "title": "...",
+                "summary": "...",
+                "content": "Full transcript...",
+                "tasks": [{"content": "...", "priority": "Medium", "due_date": null}],
+                "diagram": "..."
+            }
+            """
+
+            response = model.generate_content([prompt, audio_file])
+
+            # Clean up temp file
+            os.remove(temp_path)
+
+            # Parse response
+            response_text = response.text.strip()
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+
+            result = json.loads(response_text)
+            return jsonify(result)
+        else:
+            # Mock Fallback
+            os.remove(temp_path)
+            return jsonify({
+                "title": "(Mock Audio) Meeting Analysis",
+                "summary": "This is a mock analysis of the uploaded audio file.",
+                "content": "This is the mock transcript of the audio file you uploaded. It assumes you discussed project timelines.",
+                "tasks": [
+                    {"content": "Review audio transcript", "priority": "High", "due_date": None}
+                ],
+                "diagram": "graph TD; Audio[Audio File] --> Transcript[Transcript]; Transcript --> Analysis[Analysis];"
+            })
+
+    except Exception as e:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        print(f"Error in audio analysis: {e}")
+        return jsonify({"error": str(e)}), 500
+
 # --- Task API Endpoints ---
 @app.route("/api/tasks", methods=["GET"])
 def get_tasks():
