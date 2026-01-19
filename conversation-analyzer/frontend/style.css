@@ -292,6 +292,31 @@ main {
     resize: vertical;
 }
 
+.input-with-action {
+    display: flex;
+    align-items: flex-start;
+    gap: 5px;
+}
+
+.input-with-action textarea {
+    flex-grow: 1;
+}
+
+.input-with-action .action-icon-btn {
+    margin-top: 5px;
+    font-size: 18px;
+}
+
+.tag-badge {
+    background-color: var(--secondary-hover);
+    color: white;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    margin-right: 5px;
+    display: inline-block;
+}
+
 #new-tasks-list {
     list-style-type: none;
     padding: 0;

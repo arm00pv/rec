@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysisResult = document.getElementById('analysis-result');
     const analysisTitleInput = document.getElementById('analysis-title');
     const analysisSummaryInput = document.getElementById('analysis-summary');
+    const analysisTagsInput = document.getElementById('analysis-tags');
+    const ttsSummaryBtn = document.getElementById('tts-summary-btn');
+    const copySummaryBtn = document.getElementById('copy-summary-btn');
     const newTasksList = document.getElementById('new-tasks-list');
     const addToTasksBtn = document.getElementById('add-to-tasks-btn');
     const saveNoteBtn = document.getElementById('save-note-btn');
@@ -264,6 +267,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Populate Title and Summary
         analysisTitleInput.value = result.title || "Untitled Note";
         analysisSummaryInput.value = result.summary || "";
+        analysisTagsInput.value = ""; // Clear tags for new analysis
 
         // Render Tasks
         newTasksList.innerHTML = '';
@@ -343,6 +347,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const title = analysisTitleInput.value.trim() || "Untitled Note";
         const summary = analysisSummaryInput.value.trim();
+        const tags = analysisTagsInput.value.trim();
 
         try {
             const response = await fetch('/api/notes', {
@@ -352,7 +357,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     content: content,
                     diagram_code: currentDiagramCode,
                     title: title,
-                    summary: summary
+                    summary: summary,
+                    tags: tags
                 })
             });
 
@@ -469,10 +475,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const title = note.title || "Untitled";
             const summaryText = note.summary || note.content.substring(0, 50) + "...";
 
+            let tagsHtml = '';
+            if (note.tags) {
+                tagsHtml = '<div style="margin-top:5px;">' +
+                    note.tags.split(',').map(tag => `<span class="tag-badge">${tag.trim()}</span>`).join('') +
+                    '</div>';
+            }
+
             summaryDiv.innerHTML = `
                 <span class="note-date">${date}</span>
                 <strong style="display:block; font-size:1.1em; margin-bottom:5px;">${title}</strong>
                 <span class="note-preview">${summaryText}</span>
+                ${tagsHtml}
             `;
 
             const deleteBtn = document.createElement('button');
@@ -528,18 +542,29 @@ document.addEventListener('DOMContentLoaded', () => {
         noteDetailContent.classList.remove('hidden');
         noteEditForm.classList.add('hidden');
 
+        let tagsHtml = '';
+        if (note.tags) {
+             tagsHtml = '<div style="margin-bottom: 20px;">' +
+                    note.tags.split(',').map(tag => `<span class="tag-badge">${tag.trim()}</span>`).join('') +
+                    '</div>';
+        }
+
+        const safeSummary = (note.summary || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ');
+        const safeContent = (note.content || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+
         noteDetailContent.innerHTML = `
             <h2>${note.title || 'Untitled'}</h2>
             <p class="note-date">Created: ${new Date(note.created_at).toLocaleString()}</p>
+            ${tagsHtml}
 
             ${note.summary ? `
             <div class="analysis-section">
-                <h3>Summary</h3>
+                <h3>Summary <button class="action-icon-btn" onclick="speakText('${safeSummary}')" title="Read"><i class="fas fa-volume-up"></i></button></h3>
                 <p>${note.summary}</p>
             </div>` : ''}
 
             <div class="analysis-section">
-                <h3>Transcript</h3>
+                <h3>Transcript <button class="action-icon-btn" onclick="copyToClipboard('${safeContent}')" title="Copy"><i class="fas fa-copy"></i></button></h3>
                 <p style="white-space: pre-wrap;">${note.content}</p>
             </div>
             ${note.diagram_code ? `
@@ -573,6 +598,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 <label>Title</label>
                 <input type="text" id="edit-note-title" value="${currentViewingNote.title || ''}">
 
+                <label>Tags</label>
+                <input type="text" id="edit-note-tags" value="${currentViewingNote.tags || ''}" placeholder="Comma separated">
+
                 <label>Summary</label>
                 <textarea id="edit-note-summary" rows="3">${currentViewingNote.summary || ''}</textarea>
 
@@ -593,6 +621,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         document.getElementById('save-edit-btn').addEventListener('click', async () => {
             const updatedTitle = document.getElementById('edit-note-title').value;
+            const updatedTags = document.getElementById('edit-note-tags').value;
             const updatedSummary = document.getElementById('edit-note-summary').value;
             const updatedContent = document.getElementById('edit-note-content').value;
 
@@ -603,8 +632,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     body: JSON.stringify({
                         title: updatedTitle,
                         summary: updatedSummary,
-                        content: updatedContent
-                        // Not updating diagram code for simplicity here, but could be added
+                        content: updatedContent,
+                        tags: updatedTags
                     })
                 });
 
@@ -898,5 +927,38 @@ document.addEventListener('DOMContentLoaded', () => {
         const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
         const date = new Date(dateString + 'T00:00:00'); // Assume local timezone
         return date.toLocaleDateString(undefined, options);
+    }
+
+    // --- TTS & Clipboard Utilities ---
+    // Exposed to window for inline onclick handlers in innerHTML
+    window.speakText = (text) => {
+        if ('speechSynthesis' in window) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            window.speechSynthesis.speak(utterance);
+        } else {
+            showToast('Text-to-speech not supported.', 'error');
+        }
+    };
+
+    window.copyToClipboard = (text) => {
+        navigator.clipboard.writeText(text).then(() => {
+            showToast('Copied to clipboard!', 'success');
+        }, (err) => {
+            console.error('Could not copy text: ', err);
+            showToast('Failed to copy.', 'error');
+        });
+    };
+
+    if(ttsSummaryBtn) {
+        ttsSummaryBtn.addEventListener('click', () => {
+            const text = analysisSummaryInput.value;
+            if(text) window.speakText(text);
+        });
+    }
+    if(copySummaryBtn) {
+        copySummaryBtn.addEventListener('click', () => {
+            const text = analysisSummaryInput.value;
+            if(text) window.copyToClipboard(text);
+        });
     }
 });

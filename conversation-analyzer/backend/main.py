@@ -49,6 +49,7 @@ class Note(db.Model):
     content = db.Column(db.Text, nullable=False)
     diagram_code = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.String(30), nullable=False)
+    tags = db.Column(db.String(200), nullable=True) # Comma separated tags
 
     def to_dict(self):
         return {
@@ -57,7 +58,8 @@ class Note(db.Model):
             "summary": self.summary,
             "content": self.content,
             "diagram_code": self.diagram_code,
-            "created_at": self.created_at
+            "created_at": self.created_at,
+            "tags": self.tags
         }
 
 # --- CLI Command to Init DB ---
@@ -273,6 +275,7 @@ def add_note():
     diagram_code = request.json.get("diagram_code")
     title = request.json.get("title", "Untitled Note")
     summary = request.json.get("summary", "")
+    tags = request.json.get("tags", "")
     created_at = datetime.datetime.now().isoformat()
 
     new_note = Note(
@@ -280,7 +283,8 @@ def add_note():
         diagram_code=diagram_code,
         created_at=created_at,
         title=title,
-        summary=summary
+        summary=summary,
+        tags=tags
     )
     db.session.add(new_note)
     db.session.commit()
@@ -303,6 +307,8 @@ def update_note(note_id):
         note.summary = request.json['summary']
     if 'diagram_code' in request.json:
         note.diagram_code = request.json['diagram_code']
+    if 'tags' in request.json:
+        note.tags = request.json['tags']
 
     db.session.commit()
     return jsonify(note.to_dict())

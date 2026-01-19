@@ -82,7 +82,15 @@
                         </div>
                         <div class="meta-field">
                             <label for="analysis-summary">Summary:</label>
-                            <textarea id="analysis-summary" rows="2" placeholder="Summary..."></textarea>
+                            <div class="input-with-action">
+                                <textarea id="analysis-summary" rows="2" placeholder="Summary..."></textarea>
+                                <button id="tts-summary-btn" class="action-icon-btn" title="Read Aloud"><i class="fas fa-volume-up"></i></button>
+                                <button id="copy-summary-btn" class="action-icon-btn" title="Copy Summary"><i class="fas fa-copy"></i></button>
+                            </div>
+                        </div>
+                        <div class="meta-field">
+                            <label for="analysis-tags">Tags (comma separated):</label>
+                            <input type="text" id="analysis-tags" placeholder="e.g. Work, Meeting, Important">
                         </div>
                     </div>
 
