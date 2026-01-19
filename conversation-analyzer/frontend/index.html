@@ -29,6 +29,18 @@
                 <div id="recorder-ui">
                     <p id="instructions">Speak to take notes.</p>
                     <div class="controls">
+                        <div class="language-select-wrapper" style="display:inline-block; margin-right: 10px;">
+                            <select id="recognition-lang-select" style="padding: 8px; border-radius: 6px;">
+                                <option value="en-US">English (US)</option>
+                                <option value="es-ES">Spanish</option>
+                                <option value="fr-FR">French</option>
+                                <option value="de-DE">German</option>
+                                <option value="zh-CN">Chinese</option>
+                                <option value="ja-JP">Japanese</option>
+                                <option value="pt-BR">Portuguese</option>
+                                <option value="hi-IN">Hindi</option>
+                            </select>
+                        </div>
                         <button id="start-recognition-btn" class="primary-btn">
                             <i class="fas fa-microphone"></i> Start Listening
                         </button>
@@ -156,6 +168,7 @@
                         <div class="detail-actions">
                             <button id="edit-note-btn" class="primary-btn small-btn"><i class="fas fa-edit"></i> Edit</button>
                             <button id="export-note-btn" class="secondary-btn small-btn"><i class="fas fa-download"></i> Export</button>
+                            <button id="print-note-btn" class="secondary-btn small-btn"><i class="fas fa-print"></i> Print</button>
                         </div>
                     </div>
                     <div id="note-detail-content">
@@ -193,19 +206,27 @@
                         <label>
                             Status:
                             <select id="filter-status">
-                            <option value="all">All</option>
-                            <option value="active">Active</option>
-                            <option value="done">Completed</option>
-                        </select>
-                    </label>
-                    <label>
-                        Priority:
-                        <select id="filter-priority">
-                            <option value="all">All</option>
-                            <option value="High">High</option>
-                            <option value="Medium">Medium</option>
-                            <option value="Low">Low</option>
-                        </select>
+                                <option value="all">All</option>
+                                <option value="active">Active</option>
+                                <option value="done">Completed</option>
+                            </select>
+                        </label>
+                        <label>
+                            Priority:
+                            <select id="filter-priority">
+                                <option value="all">All</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </label>
+                        <label>
+                            Sort:
+                            <select id="sort-tasks">
+                                <option value="date-desc">Date (Newest)</option>
+                                <option value="date-asc">Date (Oldest)</option>
+                                <option value="priority">Priority</option>
+                            </select>
                         </label>
                     </div>
                     <button id="export-tasks-btn" class="secondary-btn small-btn"><i class="fas fa-file-csv"></i> Export CSV</button>

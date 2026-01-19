@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggleBtn = document.getElementById('theme-toggle');
     const startRecognitionBtn = document.getElementById('start-recognition-btn');
     const stopRecognitionBtn = document.getElementById('stop-recognition-btn');
+    const recognitionLangSelect = document.getElementById('recognition-lang-select');
     const audioFileInput = document.getElementById('audio-file-input');
     const uploadAudioBtn = document.getElementById('upload-audio-btn');
     const recordingVisualizer = document.getElementById('recording-visualizer');
@@ -27,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const taskListContainer = document.getElementById('task-list-container');
     const filterStatus = document.getElementById('filter-status');
     const filterPriority = document.getElementById('filter-priority');
+    const sortTasksSelect = document.getElementById('sort-tasks');
     const taskStatsContainer = document.getElementById('task-stats-container');
     const statTotal = document.getElementById('stat-total');
     const statPending = document.getElementById('stat-pending');
@@ -42,6 +44,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const backToNotesBtn = document.getElementById('back-to-notes-btn');
     const editNoteBtn = document.getElementById('edit-note-btn');
     const exportNoteBtn = document.getElementById('export-note-btn');
+    const printNoteBtn = document.getElementById('print-note-btn');
     const noteSearchInput = document.getElementById('note-search-input');
     const toastContainer = document.getElementById('toast-container');
     const modalContainer = document.getElementById('modal-container');
@@ -179,6 +182,13 @@ document.addEventListener('DOMContentLoaded', () => {
         recognition.continuous = true;
         recognition.interimResults = true;
         recognition.lang = 'en-US';
+
+        if (recognitionLangSelect) {
+            recognitionLangSelect.addEventListener('change', () => {
+                recognition.lang = recognitionLangSelect.value;
+                showToast(`Language set to ${recognitionLangSelect.options[recognitionLangSelect.selectedIndex].text}`, 'info');
+            });
+        }
 
         recognition.onstart = () => {
             isRecording = true;
@@ -789,6 +799,13 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast('Note exported', 'success');
     });
 
+    if (printNoteBtn) {
+        printNoteBtn.addEventListener('click', () => {
+            if (!currentViewingNote) return;
+            window.print();
+        });
+    }
+
     backToNotesBtn.addEventListener('click', () => {
         noteDetailView.classList.add('hidden');
         noteListView.classList.remove('hidden');
@@ -801,6 +818,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Filters & Export
     filterStatus.addEventListener('change', () => renderTasks(allTaskGroups));
     filterPriority.addEventListener('change', () => renderTasks(allTaskGroups));
+    if (sortTasksSelect) sortTasksSelect.addEventListener('change', () => renderTasks(allTaskGroups));
     exportTasksBtn.addEventListener('click', exportTasksToCSV);
 
     async function fetchTasks() {
@@ -850,44 +868,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const statusFilter = filterStatus.value;
         const priorityFilter = filterPriority.value;
+        const sortMode = sortTasksSelect ? sortTasksSelect.value : 'date-desc';
 
-        let hasVisibleTasks = false;
-
+        // Flatten for sorting if we are not just using default group-by-date
+        let tasksToRender = [];
         groups.forEach(group => {
-            // Filter tasks inside group
-            const filteredTasks = group.tasks.filter(task => {
-                let statusMatch = true;
-                if (statusFilter === 'active') statusMatch = !task.done;
-                if (statusFilter === 'done') statusMatch = task.done;
-
-                let priorityMatch = true;
-                if (priorityFilter !== 'all') {
-                    priorityMatch = (task.priority === priorityFilter);
-                }
-
-                return statusMatch && priorityMatch;
-            });
-
-            if (filteredTasks.length > 0) {
-                hasVisibleTasks = true;
-                const groupEl = document.createElement('div');
-                groupEl.className = 'task-group';
-
-                const dateEl = document.createElement('h3');
-                dateEl.textContent = formatDate(group.date);
-                groupEl.appendChild(dateEl);
-
-                filteredTasks.forEach(task => {
-                    const taskEl = createTaskElement(task);
-                    groupEl.appendChild(taskEl);
-                });
-
-                taskListContainer.appendChild(groupEl);
-            }
+            group.tasks.forEach(t => tasksToRender.push({...t, groupDate: group.date}));
         });
 
-        if (!hasVisibleTasks) {
-            showEmptyState(taskListContainer, 'No tasks match your filters.', 'fa-filter');
+        // Filter first
+        tasksToRender = tasksToRender.filter(task => {
+             let statusMatch = true;
+            if (statusFilter === 'active') statusMatch = !task.done;
+            if (statusFilter === 'done') statusMatch = task.done;
+
+            let priorityMatch = true;
+            if (priorityFilter !== 'all') {
+                priorityMatch = (task.priority === priorityFilter);
+            }
+            return statusMatch && priorityMatch;
+        });
+
+        if (tasksToRender.length === 0) {
+             showEmptyState(taskListContainer, 'No tasks match your filters.', 'fa-filter');
+             return;
+        }
+
+        // Sort
+        tasksToRender.sort((a, b) => {
+            if (sortMode === 'date-desc') {
+                return new Date(b.groupDate) - new Date(a.groupDate);
+            } else if (sortMode === 'date-asc') {
+                 return new Date(a.groupDate) - new Date(b.groupDate);
+            } else if (sortMode === 'priority') {
+                const map = { 'High': 3, 'Medium': 2, 'Low': 1 };
+                const pA = map[a.priority] || 0;
+                const pB = map[b.priority] || 0;
+                return pB - pA; // High to Low
+            }
+            return 0;
+        });
+
+        // Group again by date (or just list if sorted by priority? Let's keep date grouping as headers)
+        // Actually, if sorting by priority, date headers might be confusing if they jump around.
+        // If sorting by priority, we should probably not group by date, or group by Priority?
+        // Let's stick to the current UI pattern: List of Groups.
+        // If sort by Priority, we might just list them without date headers, OR regroup by Priority?
+        // Simpler approach: Just render a flat list if not sorting by Date.
+
+        taskListContainer.innerHTML = '';
+
+        if (sortMode === 'priority') {
+            // Flat list
+            tasksToRender.forEach(task => {
+                // Check if we need a header? No, just list.
+                 const taskEl = createTaskElement(task);
+                 taskListContainer.appendChild(taskEl);
+            });
+        } else {
+            // Regroup by Date (Preserving Sort Order of Groups)
+            // Since we sorted by date (asc/desc), the tasks are in order.
+            // We just need to reconstruct groups.
+            let currentGroupDate = null;
+            let currentGroupEl = null;
+
+            tasksToRender.forEach(task => {
+                if (task.groupDate !== currentGroupDate) {
+                    currentGroupDate = task.groupDate;
+                    currentGroupEl = document.createElement('div');
+                    currentGroupEl.className = 'task-group';
+                    const dateEl = document.createElement('h3');
+                    dateEl.textContent = formatDate(currentGroupDate);
+                    currentGroupEl.appendChild(dateEl);
+                    taskListContainer.appendChild(currentGroupEl);
+                }
+                const taskEl = createTaskElement(task);
+                currentGroupEl.appendChild(taskEl);
+            });
         }
     }
 

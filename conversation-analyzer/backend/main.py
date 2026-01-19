@@ -6,8 +6,6 @@ import os
 import subprocess
 import hmac
 import hashlib
-import requests
-import uuid
 import google.generativeai as genai
 import json
 

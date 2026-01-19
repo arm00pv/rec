@@ -725,7 +725,6 @@ mark {
 .hidden {
     display: none !important;
 }
-/* ... (Keep existing styles) ... */
 
 /* Task Stats */
 .task-stats {
@@ -769,15 +768,14 @@ mark {
     border-radius: 5px;
     margin-bottom: 20px;
     gap: 15px;
+    flex-wrap: wrap;
 }
 
 .filter-group {
     display: flex;
     gap: 15px;
+    flex-wrap: wrap;
 }
-
-/* ... (Keep rest) ... */
-/* ... (Keep existing styles) ... */
 
 .meta-row {
     display: flex;
@@ -809,4 +807,74 @@ mark {
     border-radius: 4px;
     font-size: 0.8em;
     margin-right: 5px;
+}
+
+/* Print Styles */
+@media print {
+    /* Hide everything initially */
+    body > * {
+        display: none !important;
+    }
+
+    /* Show container but reset its style */
+    body {
+        background: white;
+        padding: 0;
+    }
+
+    /* We only want to print the current viewing note detail view */
+    /* This logic depends on the specific view being active */
+    /* A better approach for print: Apply a class 'print-mode' or rely on what's visible */
+
+    /* However, 'display:none' above hides the container too. Let's try scoping. */
+
+    header,
+    .theme-toggle,
+    .tabs,
+    #recorder-ui,
+    #note-list-view,
+    .detail-actions,
+    #back-to-notes-btn,
+    .search-bar,
+    .toast,
+    #task-list-container,
+    #task-stats-container,
+    .task-filters,
+    #modal-container {
+        display: none !important;
+    }
+
+    .container {
+        box-shadow: none;
+        max-width: 100%;
+        margin: 0;
+        border: none;
+    }
+
+    body > .container {
+        display: block !important;
+    }
+
+    main {
+        padding: 0;
+    }
+
+    #notes-tab {
+        display: block !important;
+    }
+
+    #note-detail-view, #note-detail-content {
+        display: block !important;
+    }
+
+    /* Ensure text colors are black for print */
+    * {
+        color: black !important;
+        background: white !important;
+    }
+
+    /* Mermaid diagrams often need background to be visible if lines are white */
+    .mermaid svg {
+        max-width: 100%;
+    }
 }
