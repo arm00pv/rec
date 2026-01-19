@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_from_directory, abort
+from werkzeug.utils import secure_filename
 from flask_sqlalchemy import SQLAlchemy
 from collections import defaultdict
 import datetime
@@ -217,8 +218,9 @@ def analyze_audio():
     if file.filename == '':
         return "No selected file", 400
 
-    # Save temp file
-    temp_path = os.path.join(UPLOAD_FOLDER, file.filename)
+    # Save temp file securely
+    filename = secure_filename(file.filename)
+    temp_path = os.path.join(UPLOAD_FOLDER, filename)
     file.save(temp_path)
 
     api_key = os.environ.get('GOOGLE_API_KEY')

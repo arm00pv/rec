@@ -73,30 +73,31 @@ This is a standalone web application for recording conversations, analyzing them
 
 ## Usage Guide
 
-1.  **Note Taking**:
-    *   **Live Recording**: Click "Start Listening" to begin. Speak clearly. Click "Stop" when done.
-    *   **File Upload**: Use the "Upload Audio" button to process an existing audio file.
-    *   **Analyze**: Click "Analyze" to send text/audio to Gemini.
-    *   **Review**: Check the extracted tasks, summary, diagrams, sentiment, and tags.
-    *   **Save**: Save the analysis as a Note or add tasks directly to the Task Manager.
+For a detailed step-by-step manual, please read the [USER_GUIDE.md](USER_GUIDE.md).
 
-2.  **Saved Notes**:
-    *   View your history. Use the search bar to find specific content.
-    *   See badges for Sentiment and Category.
-    *   Translate content or use Text-to-Speech.
-    *   Export to Markdown.
-
-3.  **Tasks**:
-    *   Manage your to-do list.
-    *   View the "Stats" dashboard for a quick overview.
-    *   Filter and Sort tasks.
-    *   Export your list to CSV.
+### Quick Start
+1.  **Note Taking**: Record speech or upload audio -> Click "Analyze" -> Save Note.
+2.  **Tasks**: Manage extracted action items in the Tasks tab.
+3.  **Knowledge Base**: View categorized notes in the Knowledge Base tab.
 
 ## Troubleshooting
 
 *   **Speech Recognition**: Ensure you are using a supported browser (Chrome, Edge, Safari) and have granted microphone permissions.
 *   **Analysis Errors**: Check your `GOOGLE_API_KEY` and internet connection. Check the backend console for error logs.
 
-## Deployment
+## Installation & Deployment
 
-For instructions on deploying this application to a LAMP server (Linux/Apache), please see [DEPLOYMENT.md](DEPLOYMENT.md).
+### One-Click Install (Linux/Mac)
+Run the automated installer to set up the environment, dependencies, and database:
+
+```bash
+./install.sh
+```
+
+Then run the app:
+```bash
+./run.sh
+```
+
+### Manual Deployment
+For detailed instructions on deploying this application to a LAMP server (Linux/Apache), please see [DEPLOYMENT.md](DEPLOYMENT.md).
