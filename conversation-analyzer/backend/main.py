@@ -8,6 +8,10 @@ import hmac
 import hashlib
 import google.generativeai as genai
 import json
+import warnings
+
+# Suppress deprecation warnings for google-generativeai
+warnings.filterwarnings("ignore", category=FutureWarning, module="google.generativeai")
 
 app = Flask(__name__, static_folder='../frontend')
 

@@ -20,9 +20,10 @@ This is a standalone web application for recording conversations, analyzing them
     *   **CRUD**: Create, Edit, Delete, and Complete tasks.
 *   **Note Management**:
     *   **Save & Organize**: Save analyzed conversations with all metadata.
+    *   **Knowledge Base**: View notes organized by category in a dedicated repository view.
     *   **Search**: Full-text search with keyword highlighting.
     *   **Translation**: Translate note summaries and transcripts into multiple languages.
-    *   **Export**: Export notes to Markdown.
+    *   **Export/Print**: Export notes to Markdown or print them as clean PDFs.
     *   **Text-to-Speech**: Listen to note summaries or transcripts.
 *   **UI/UX**:
     *   Dark Mode support.
@@ -95,3 +96,7 @@ This is a standalone web application for recording conversations, analyzing them
 
 *   **Speech Recognition**: Ensure you are using a supported browser (Chrome, Edge, Safari) and have granted microphone permissions.
 *   **Analysis Errors**: Check your `GOOGLE_API_KEY` and internet connection. Check the backend console for error logs.
+
+## Deployment
+
+For instructions on deploying this application to a LAMP server (Linux/Apache), please see [DEPLOYMENT.md](DEPLOYMENT.md).

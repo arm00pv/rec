@@ -1,0 +1,33 @@
+<VirtualHost *:80>
+    ServerName yourdomain.com
+    ServerAdmin webmaster@localhost
+    DocumentRoot /var/www/conversation-analyzer
+
+    # Configure Logging
+    ErrorLog ${APACHE_LOG_DIR}/conversation-analyzer-error.log
+    CustomLog ${APACHE_LOG_DIR}/conversation-analyzer-access.log combined
+
+    # WSGI Configuration
+    WSGIDaemonProcess conversation-analyzer user=www-data group=www-data threads=5 python-home=/var/www/conversation-analyzer/venv
+    WSGIScriptAlias / /var/www/conversation-analyzer/conversation-analyzer/backend/wsgi.py
+
+    <Directory /var/www/conversation-analyzer/conversation-analyzer/backend>
+        WSGIProcessGroup conversation-analyzer
+        WSGIApplicationGroup %{GLOBAL}
+        Order deny,allow
+        Allow from all
+        Require all granted
+    </Directory>
+
+    # Environment Variables (Set your API Key here)
+    SetEnv GOOGLE_API_KEY "your_google_api_key_here"
+    SetEnv SECRET_KEY "your_secret_key_here"
+
+    # Static Files (Optional, for better performance)
+    Alias /static /var/www/conversation-analyzer/conversation-analyzer/frontend
+    <Directory /var/www/conversation-analyzer/conversation-analyzer/frontend>
+        Order allow,deny
+        Allow from all
+        Require all granted
+    </Directory>
+</VirtualHost>

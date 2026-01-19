@@ -51,6 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const tabs = document.querySelectorAll('.tab-link');
     const contents = document.querySelectorAll('.tab-content');
+    const kbContainer = document.getElementById('kb-container');
 
     // --- State ---
     let recognition;
@@ -171,6 +172,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 noteListView.classList.remove('hidden');
                 noteDetailView.classList.add('hidden');
                 noteEditForm.classList.add('hidden'); // Ensure edit form is hidden
+            } else if (tab.dataset.tab === 'kb-tab') {
+                fetchKnowledgeBase();
             }
         });
     });
@@ -531,6 +534,70 @@ document.addEventListener('DOMContentLoaded', () => {
             console.error('Error fetching notes:', error);
             noteListContainer.innerHTML = '<p>Error loading notes.</p>';
         }
+    }
+
+    async function fetchKnowledgeBase() {
+        try {
+            showLoading(kbContainer, 'Building knowledge base...');
+
+            // Reuse fetch notes logic or make a new call? Reusing is fine as we sort client side.
+            if (allNotes.length === 0) {
+                 const response = await fetch('/api/notes');
+                 if (!response.ok) throw new Error('Failed to fetch notes');
+                 allNotes = await response.json();
+            }
+
+            renderKnowledgeBase(allNotes);
+
+        } catch (error) {
+            console.error('Error loading KB:', error);
+            kbContainer.innerHTML = '<p>Error loading knowledge base.</p>';
+        }
+    }
+
+    function renderKnowledgeBase(notes) {
+        kbContainer.innerHTML = '';
+        if (notes.length === 0) {
+            showEmptyState(kbContainer, 'No knowledge base articles found.', 'fa-book');
+            return;
+        }
+
+        // Group by Category
+        const categories = {};
+        notes.forEach(note => {
+            const cat = note.category || 'Other';
+            if (!categories[cat]) categories[cat] = [];
+            categories[cat].push(note);
+        });
+
+        // Render Groups
+        Object.keys(categories).sort().forEach(cat => {
+            const groupSection = document.createElement('div');
+            groupSection.className = 'kb-category-section';
+
+            const header = document.createElement('h3');
+            header.className = 'kb-category-header';
+            header.innerHTML = `<i class="fas fa-folder"></i> ${cat} <span class="badge">${categories[cat].length}</span>`;
+
+            const list = document.createElement('div');
+            list.className = 'kb-article-list';
+
+            categories[cat].forEach(note => {
+                const item = document.createElement('div');
+                item.className = 'kb-article-item';
+                item.innerHTML = `<i class="fas fa-file-alt"></i> <span>${note.title || 'Untitled'}</span>`;
+                item.onclick = () => {
+                     // Switch to Notes tab and view detail
+                     document.querySelector('[data-tab="notes-tab"]').click();
+                     viewNoteDetail(note);
+                };
+                list.appendChild(item);
+            });
+
+            groupSection.appendChild(header);
+            groupSection.appendChild(list);
+            kbContainer.appendChild(groupSection);
+        });
     }
 
     function renderNotesList(notes, highlightTerm = '') {

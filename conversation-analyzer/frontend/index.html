@@ -6,6 +6,7 @@
     <title>Conversation Analyzer</title>
     <base href="/">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="kb.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 </head>
@@ -20,6 +21,7 @@
                 <button class="tab-link active" data-tab="record-tab">Note Taking</button>
                 <button class="tab-link" data-tab="notes-tab">Saved Notes</button>
                 <button class="tab-link" data-tab="tasks-tab">Tasks</button>
+                <button class="tab-link" data-tab="kb-tab">Knowledge Base</button>
             </div>
         </header>
 
@@ -238,6 +240,21 @@
                         <p>Loading tasks...</p>
                     </div>
                 </div>
+            </div>
+
+            <!-- Knowledge Base Tab -->
+            <div id="kb-tab" class="tab-content">
+                <div class="kb-header">
+                    <h2>Knowledge Base</h2>
+                    <p class="kb-subtitle">Organized repository of your analyzed conversations.</p>
+                </div>
+                <div id="kb-container">
+                    <div class="spinner-container">
+                        <div class="spinner"></div>
+                        <p>Loading knowledge base...</p>
+                    </div>
+                </div>
+                <!-- Reuse Note Detail View (Shared or Cloned? Let's use a read-only modal or reuse view logic) -->
             </div>
         </main>
     </div>
