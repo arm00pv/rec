@@ -50,6 +50,8 @@ class Note(db.Model):
     diagram_code = db.Column(db.Text, nullable=True)
     created_at = db.Column(db.String(30), nullable=False)
     tags = db.Column(db.String(200), nullable=True) # Comma separated tags
+    sentiment = db.Column(db.String(50), nullable=True)
+    category = db.Column(db.String(50), nullable=True)
 
     def to_dict(self):
         return {
@@ -59,7 +61,9 @@ class Note(db.Model):
             "content": self.content,
             "diagram_code": self.diagram_code,
             "created_at": self.created_at,
-            "tags": self.tags
+            "tags": self.tags,
+            "sentiment": self.sentiment,
+            "category": self.category
         }
 
 # --- CLI Command to Init DB ---
@@ -101,6 +105,8 @@ def analyze_text():
             2. Create a Mermaid diagram representing the flow or concepts.
             3. Generate a short 'title' (max 5-7 words) for this note.
             4. Generate a 'summary' (1-2 sentences) of the content.
+            5. Determine the 'sentiment' (Positive, Neutral, Negative).
+            6. Determine the 'category' (Meeting, Personal, Work, Idea, Other).
 
             Text:
             {text}
@@ -109,6 +115,8 @@ def analyze_text():
             {{
                 "title": "Meeting about Project X",
                 "summary": "Discussed timeline and budget...",
+                "sentiment": "Neutral",
+                "category": "Work",
                 "tasks": [
                     {{"content": "Task description...", "priority": "High", "due_date": "2023-10-27"}},
                     ...
@@ -225,12 +233,16 @@ def analyze_audio():
             3. Generate a summary.
             4. Create a Mermaid diagram code if applicable.
             5. Create a title.
+            6. Determine the 'sentiment' (Positive, Neutral, Negative).
+            7. Determine the 'category' (Meeting, Personal, Work, Idea, Other).
 
             Return the result in the following JSON format ONLY (no markdown blocks):
             {
                 "title": "...",
                 "summary": "...",
                 "content": "Full transcript...",
+                "sentiment": "Neutral",
+                "category": "Meeting",
                 "tasks": [{"content": "...", "priority": "Medium", "due_date": null}],
                 "diagram": "..."
             }
@@ -349,6 +361,8 @@ def add_note():
     title = request.json.get("title", "Untitled Note")
     summary = request.json.get("summary", "")
     tags = request.json.get("tags", "")
+    sentiment = request.json.get("sentiment", "Neutral")
+    category = request.json.get("category", "Other")
     created_at = datetime.datetime.now().isoformat()
 
     new_note = Note(
@@ -357,7 +371,9 @@ def add_note():
         created_at=created_at,
         title=title,
         summary=summary,
-        tags=tags
+        tags=tags,
+        sentiment=sentiment,
+        category=category
     )
     db.session.add(new_note)
     db.session.commit()
@@ -382,6 +398,10 @@ def update_note(note_id):
         note.diagram_code = request.json['diagram_code']
     if 'tags' in request.json:
         note.tags = request.json['tags']
+    if 'sentiment' in request.json:
+        note.sentiment = request.json['sentiment']
+    if 'category' in request.json:
+        note.category = request.json['category']
 
     db.session.commit()
     return jsonify(note.to_dict())

@@ -13,6 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const analysisTitleInput = document.getElementById('analysis-title');
     const analysisSummaryInput = document.getElementById('analysis-summary');
     const analysisTagsInput = document.getElementById('analysis-tags');
+    const analysisSentimentInput = document.getElementById('analysis-sentiment');
+    const analysisCategoryInput = document.getElementById('analysis-category');
     const ttsSummaryBtn = document.getElementById('tts-summary-btn');
     const copySummaryBtn = document.getElementById('copy-summary-btn');
     const newTasksList = document.getElementById('new-tasks-list');
@@ -325,7 +327,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Populate Title and Summary
         analysisTitleInput.value = result.title || "Untitled Note";
         analysisSummaryInput.value = result.summary || "";
-        analysisTagsInput.value = ""; // Clear tags for new analysis
+        analysisTagsInput.value = "";
+        analysisSentimentInput.value = result.sentiment || "Neutral";
+        analysisCategoryInput.value = result.category || "Other";
 
         // Render Tasks
         newTasksList.innerHTML = '';
@@ -406,6 +410,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const title = analysisTitleInput.value.trim() || "Untitled Note";
         const summary = analysisSummaryInput.value.trim();
         const tags = analysisTagsInput.value.trim();
+        const sentiment = analysisSentimentInput.value;
+        const category = analysisCategoryInput.value;
 
         try {
             const response = await fetch('/api/notes', {
@@ -416,7 +422,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     diagram_code: currentDiagramCode,
                     title: title,
                     summary: summary,
-                    tags: tags
+                    tags: tags,
+                    sentiment: sentiment,
+                    category: category
                 })
             });
 
@@ -556,9 +564,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     '</div>';
             }
 
+            let metaHtml = '';
+            if (note.sentiment || note.category) {
+                metaHtml = '<div style="margin-bottom:5px;">';
+                if (note.category) metaHtml += `<span class="category-pill">${note.category}</span>`;
+                if (note.sentiment) metaHtml += `<span class="sentiment-badge sentiment-${note.sentiment.toLowerCase()}">${note.sentiment}</span>`;
+                metaHtml += '</div>';
+            }
+
             summaryDiv.innerHTML = `
                 <span class="note-date">${date}</span>
                 <strong style="display:block; font-size:1.1em; margin-bottom:5px;">${title}</strong>
+                ${metaHtml}
                 <span class="note-preview">${summaryText}</span>
                 ${tagsHtml}
             `;
@@ -624,12 +641,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     '</div>';
         }
 
+        let metaHtml = '';
+        if (note.sentiment || note.category) {
+            metaHtml = '<div style="margin-bottom:10px;">';
+            if (note.category) metaHtml += `<span class="category-pill">${note.category}</span>`;
+            if (note.sentiment) metaHtml += `<span class="sentiment-badge sentiment-${note.sentiment.toLowerCase()}">${note.sentiment}</span>`;
+            metaHtml += '</div>';
+        }
+
         const safeSummary = (note.summary || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, ' ');
         const safeContent = (note.content || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
 
         noteDetailContent.innerHTML = `
             <h2>${note.title || 'Untitled'}</h2>
             <p class="note-date">Created: ${new Date(note.created_at).toLocaleString()}</p>
+            ${metaHtml}
             ${tagsHtml}
 
             ${note.summary ? `

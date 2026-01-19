@@ -4,29 +4,35 @@ This is a standalone web application for recording conversations, analyzing them
 
 ## Features
 
-*   **Speech-to-Text**: Real-time transcription using the Web Speech API.
-*   **AI Analysis**: Integrates with Google Gemini to analyze transcripts, extract tasks, generate summaries, and create Mermaid flow diagrams.
+*   **Speech-to-Text**: Real-time transcription using the Web Speech API with a visualizer.
+*   **Audio File Analysis**: Upload audio files (MP3, WAV, etc.) for transcription and analysis.
+*   **AI Analysis**: Integrates with Google Gemini to analyze transcripts and extract:
+    *   **Actionable Tasks** (with Priority and Due Dates).
+    *   **Summaries**.
+    *   **Mermaid Flow Diagrams**.
+    *   **Tags/Keywords**.
+    *   **Sentiment Analysis** (Positive/Neutral/Negative).
+    *   **Categorization** (Meeting, Idea, Personal, Work, etc.).
 *   **Task Management**:
-    *   View tasks grouped by date.
-    *   Filter by Status (Active/Done) and Priority (High/Medium/Low).
-    *   Mark tasks as complete.
-    *   Edit and delete tasks.
+    *   **Dashboard**: View statistics (Total, Pending, High Priority tasks).
+    *   **Filtering**: Filter by Status (Active/Done) and Priority.
+    *   **Export**: Export tasks to CSV.
+    *   **CRUD**: Create, Edit, Delete, and Complete tasks.
 *   **Note Management**:
-    *   Save analyzed conversations as notes.
-    *   View saved notes with summaries, transcripts, and re-rendered diagrams.
-    *   Search notes by keyword.
-    *   Edit note details.
-    *   Export notes to Markdown.
+    *   **Save & Organize**: Save analyzed conversations with all metadata.
+    *   **Search**: Full-text search with keyword highlighting.
+    *   **Translation**: Translate note summaries and transcripts into multiple languages.
+    *   **Export**: Export notes to Markdown.
+    *   **Text-to-Speech**: Listen to note summaries or transcripts.
 *   **UI/UX**:
     *   Dark Mode support.
     *   Responsive design.
-    *   Recording visualizer.
     *   Toast notifications and custom modals.
 
 ## Architecture
 
 *   **Frontend**: Vanilla JavaScript, HTML5, CSS3.
-    *   Uses `SpeechRecognition` API for transcription.
+    *   Uses `SpeechRecognition` API for live transcription.
     *   Uses `mermaid.js` for diagram rendering.
 *   **Backend**: Python Flask.
     *   **Database**: SQLite (`tasks.db`) via SQLAlchemy.
@@ -67,25 +73,23 @@ This is a standalone web application for recording conversations, analyzing them
 ## Usage Guide
 
 1.  **Note Taking**:
-    *   Go to the "Note Taking" tab.
-    *   Click "Start Listening" to begin transcription.
-    *   Speak clearly. The visualizer will animate.
-    *   Click "Stop Listening" when done.
-    *   Click "Analyze" to send the text to Gemini.
-    *   Review the extracted tasks, summary, and diagram.
-    *   Click "Save Note" to store everything.
-    *   Click "Add to Tasks List" to add the extracted tasks to your task manager.
+    *   **Live Recording**: Click "Start Listening" to begin. Speak clearly. Click "Stop" when done.
+    *   **File Upload**: Use the "Upload Audio" button to process an existing audio file.
+    *   **Analyze**: Click "Analyze" to send text/audio to Gemini.
+    *   **Review**: Check the extracted tasks, summary, diagrams, sentiment, and tags.
+    *   **Save**: Save the analysis as a Note or add tasks directly to the Task Manager.
 
 2.  **Saved Notes**:
-    *   View your history of notes.
-    *   Click a note to see details.
-    *   Edit or Delete notes as needed.
-    *   Export to Markdown for external use.
+    *   View your history. Use the search bar to find specific content.
+    *   See badges for Sentiment and Category.
+    *   Translate content or use Text-to-Speech.
+    *   Export to Markdown.
 
 3.  **Tasks**:
     *   Manage your to-do list.
-    *   Filter by priority or status.
-    *   Check off items as you complete them.
+    *   View the "Stats" dashboard for a quick overview.
+    *   Filter and Sort tasks.
+    *   Export your list to CSV.
 
 ## Troubleshooting
 
