@@ -149,10 +149,30 @@
 
             <!-- Tasks Tab -->
             <div id="tasks-tab" class="tab-content">
+                <div id="task-stats-container" class="task-stats hidden">
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-total">0</span>
+                        <span class="stat-label">Total</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-pending">0</span>
+                        <span class="stat-label">Pending</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-completed">0</span>
+                        <span class="stat-label">Done</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-high">0</span>
+                        <span class="stat-label">High Prio</span>
+                    </div>
+                </div>
+
                 <div class="task-filters">
-                    <label>
-                        Status:
-                        <select id="filter-status">
+                    <div class="filter-group">
+                        <label>
+                            Status:
+                            <select id="filter-status">
                             <option value="all">All</option>
                             <option value="active">Active</option>
                             <option value="done">Completed</option>
@@ -166,7 +186,9 @@
                             <option value="Medium">Medium</option>
                             <option value="Low">Low</option>
                         </select>
-                    </label>
+                        </label>
+                    </div>
+                    <button id="export-tasks-btn" class="secondary-btn small-btn"><i class="fas fa-file-csv"></i> Export CSV</button>
                 </div>
                 <div id="task-list-container">
                     <!-- Tasks will be loaded here -->

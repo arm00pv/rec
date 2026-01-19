@@ -25,6 +25,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const taskListContainer = document.getElementById('task-list-container');
     const filterStatus = document.getElementById('filter-status');
     const filterPriority = document.getElementById('filter-priority');
+    const taskStatsContainer = document.getElementById('task-stats-container');
+    const statTotal = document.getElementById('stat-total');
+    const statPending = document.getElementById('stat-pending');
+    const statCompleted = document.getElementById('stat-completed');
+    const statHigh = document.getElementById('stat-high');
+    const exportTasksBtn = document.getElementById('export-tasks-btn');
 
     const noteListContainer = document.getElementById('note-list-container');
     const noteListView = document.getElementById('note-list-view');
@@ -48,6 +54,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentDiagramCode = '';
     let allNotes = [];
     let currentViewingNote = null;
+    let allTasks = []; // Flattened list of all tasks
+    let allTaskGroups = []; // Grouped tasks
 
     // --- Theme Logic ---
     function initTheme() {
@@ -764,9 +772,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Task Management ---
 
-    // Filters
-    filterStatus.addEventListener('change', fetchTasks);
-    filterPriority.addEventListener('change', fetchTasks);
+    // Filters & Export
+    filterStatus.addEventListener('change', () => renderTasks(allTaskGroups));
+    filterPriority.addEventListener('change', () => renderTasks(allTaskGroups));
+    exportTasksBtn.addEventListener('click', exportTasksToCSV);
 
     async function fetchTasks() {
         try {
@@ -775,62 +784,133 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch('/api/tasks');
             if (!response.ok) throw new Error('Failed to fetch tasks');
 
-            const taskGroups = await response.json();
+            // API returns groups: [{date: "...", tasks: [...]}, ...]
+            allTaskGroups = await response.json();
 
-            taskListContainer.innerHTML = '';
-
-            if (taskGroups.length === 0) {
-                showEmptyState(taskListContainer, 'No tasks found.', 'fa-tasks');
-                return;
-            }
-
-            const statusFilter = filterStatus.value;
-            const priorityFilter = filterPriority.value;
-
-            let hasVisibleTasks = false;
-
-            taskGroups.forEach(group => {
-                // Filter tasks inside group
-                const filteredTasks = group.tasks.filter(task => {
-                    let statusMatch = true;
-                    if (statusFilter === 'active') statusMatch = !task.done;
-                    if (statusFilter === 'done') statusMatch = task.done;
-
-                    let priorityMatch = true;
-                    if (priorityFilter !== 'all') {
-                        priorityMatch = (task.priority === priorityFilter);
-                    }
-
-                    return statusMatch && priorityMatch;
+            // Flatten for internal state/stats
+            allTasks = [];
+            allTaskGroups.forEach(group => {
+                group.tasks.forEach(task => {
+                    // Inject date into task object for easier processing if needed
+                    task.date = group.date;
+                    allTasks.push(task);
                 });
-
-                if (filteredTasks.length > 0) {
-                    hasVisibleTasks = true;
-                    const groupEl = document.createElement('div');
-                    groupEl.className = 'task-group';
-
-                    const dateEl = document.createElement('h3');
-                    dateEl.textContent = formatDate(group.date);
-                    groupEl.appendChild(dateEl);
-
-                    filteredTasks.forEach(task => {
-                        const taskEl = createTaskElement(task);
-                        groupEl.appendChild(taskEl);
-                    });
-
-                    taskListContainer.appendChild(groupEl);
-                }
             });
 
-            if (!hasVisibleTasks) {
-                showEmptyState(taskListContainer, 'No tasks match your filters.', 'fa-filter');
-            }
+            updateTaskStats(allTasks);
+            renderTasks(allTaskGroups);
 
         } catch (error) {
             console.error('Error fetching tasks:', error);
             taskListContainer.innerHTML = '<p>Could not load tasks. Please try again later.</p>';
         }
     }
+
+    function updateTaskStats(tasks) {
+        taskStatsContainer.classList.remove('hidden');
+        statTotal.textContent = tasks.length;
+        statPending.textContent = tasks.filter(t => !t.done).length;
+        statCompleted.textContent = tasks.filter(t => t.done).length;
+        statHigh.textContent = tasks.filter(t => t.priority === 'High' && !t.done).length;
+    }
+
+    function renderTasks(groups) {
+        taskListContainer.innerHTML = '';
+
+        if (!groups || groups.length === 0) {
+            showEmptyState(taskListContainer, 'No tasks found.', 'fa-tasks');
+            return;
+        }
+
+        const statusFilter = filterStatus.value;
+        const priorityFilter = filterPriority.value;
+
+        let hasVisibleTasks = false;
+
+        groups.forEach(group => {
+            // Filter tasks inside group
+            const filteredTasks = group.tasks.filter(task => {
+                let statusMatch = true;
+                if (statusFilter === 'active') statusMatch = !task.done;
+                if (statusFilter === 'done') statusMatch = task.done;
+
+                let priorityMatch = true;
+                if (priorityFilter !== 'all') {
+                    priorityMatch = (task.priority === priorityFilter);
+                }
+
+                return statusMatch && priorityMatch;
+            });
+
+            if (filteredTasks.length > 0) {
+                hasVisibleTasks = true;
+                const groupEl = document.createElement('div');
+                groupEl.className = 'task-group';
+
+                const dateEl = document.createElement('h3');
+                dateEl.textContent = formatDate(group.date);
+                groupEl.appendChild(dateEl);
+
+                filteredTasks.forEach(task => {
+                    const taskEl = createTaskElement(task);
+                    groupEl.appendChild(taskEl);
+                });
+
+                taskListContainer.appendChild(groupEl);
+            }
+        });
+
+        if (!hasVisibleTasks) {
+            showEmptyState(taskListContainer, 'No tasks match your filters.', 'fa-filter');
+        }
+    }
+
+    function exportTasksToCSV() {
+        if (allTasks.length === 0) {
+            showToast('No tasks to export.', 'info');
+            return;
+        }
+
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "ID,Date,Content,Priority,Due Date,Status\n";
+
+        allTasks.forEach(task => {
+            const row = [
+                task.id,
+                task.date,
+                `"${(task.content || '').replace(/"/g, '""')}"`,
+                task.priority || '',
+                task.due_date || '',
+                task.done ? 'Completed' : 'Active'
+            ].join(",");
+            csvContent += row + "\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "tasks_export.csv");
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Keyboard Shortcuts
+    document.addEventListener('keydown', (e) => {
+        // Ctrl+S / Cmd+S to Save Note (if on record tab)
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+            e.preventDefault();
+            if (document.getElementById('record-tab').classList.contains('active')) {
+                saveNoteBtn.click();
+            }
+        }
+        // Ctrl+Enter to Analyze (if on record tab)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+            if (document.getElementById('record-tab').classList.contains('active')) {
+                analyzeBtn.click();
+            }
+        }
+    });
 
     function createTaskElement(task) {
         const item = document.createElement('div');
