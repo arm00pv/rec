@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const themeToggleBtn = document.getElementById('theme-toggle');
     const startRecognitionBtn = document.getElementById('start-recognition-btn');
     const stopRecognitionBtn = document.getElementById('stop-recognition-btn');
+    const recordingVisualizer = document.getElementById('recording-visualizer');
     const analyzeBtn = document.getElementById('analyze-btn');
     const transcriptionText = document.getElementById('transcription-text');
 
@@ -166,6 +167,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isRecording = true;
             startRecognitionBtn.classList.add('hidden');
             stopRecognitionBtn.classList.remove('hidden');
+            recordingVisualizer.classList.remove('hidden');
             transcriptionText.focus(); // Visual feedback
         };
 
@@ -173,6 +175,7 @@ document.addEventListener('DOMContentLoaded', () => {
             isRecording = false;
             startRecognitionBtn.classList.remove('hidden');
             stopRecognitionBtn.classList.add('hidden');
+            recordingVisualizer.classList.add('hidden');
         };
 
         recognition.onresult = (event) => {
