@@ -1,4 +1,7 @@
-from main import app
+import sys
+import os
 
-if __name__ == "__main__":
-    app.run()
+# Add the project directory to the sys.path
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from main import app as application

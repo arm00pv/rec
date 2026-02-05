@@ -1,0 +1,52 @@
+/* Knowledge Base Styles */
+.kb-header {
+    text-align: center;
+    margin-bottom: 30px;
+}
+.kb-subtitle {
+    color: var(--secondary-color);
+}
+.kb-category-section {
+    margin-bottom: 20px;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+.kb-category-header {
+    background: var(--light-gray);
+    margin: 0;
+    padding: 15px;
+    font-size: 18px;
+    color: var(--primary-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.kb-category-header .badge {
+    background: var(--primary-color);
+    color: white;
+    font-size: 12px;
+    padding: 2px 8px;
+    border-radius: 10px;
+}
+.kb-article-list {
+    padding: 10px;
+}
+.kb-article-item {
+    padding: 10px;
+    border-bottom: 1px solid var(--border-color);
+    cursor: pointer;
+    transition: background-color 0.2s;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: var(--text-color);
+}
+.kb-article-item:last-child {
+    border-bottom: none;
+}
+.kb-article-item:hover {
+    background-color: var(--light-gray);
+    color: var(--primary-color);
+}

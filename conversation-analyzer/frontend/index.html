@@ -6,62 +6,268 @@
     <title>Conversation Analyzer</title>
     <base href="/">
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="kb.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Conversation Analyzer</h1>
+            <button id="theme-toggle" class="theme-toggle" title="Toggle Dark Mode">
+                <i class="fas fa-moon"></i>
+            </button>
             <div class="tabs">
-                <button class="tab-link active" data-tab="record-tab">Record</button>
+                <button class="tab-link active" data-tab="record-tab">Note Taking</button>
+                <button class="tab-link" data-tab="notes-tab">Saved Notes</button>
                 <button class="tab-link" data-tab="tasks-tab">Tasks</button>
+                <button class="tab-link" data-tab="kb-tab">Knowledge Base</button>
             </div>
         </header>
 
         <main>
-            <!-- Recording Tab -->
+            <!-- Note Taking / Transcription Tab -->
             <div id="record-tab" class="tab-content active">
                 <div id="recorder-ui">
-                    <p id="instructions">Press the button to start recording your conversation.</p>
-                    <button id="record-btn" aria-label="Start Recording">
-                        <i class="fas fa-microphone"></i>
-                    </button>
-                    <div id="recording-status" class="hidden">
-                        <p>Recording...</p>
-                        <canvas id="visualizer" width="300" height="50"></canvas>
+                    <p id="instructions">Speak to take notes.</p>
+                    <div class="controls">
+                        <div class="language-select-wrapper" style="display:inline-block; margin-right: 10px;">
+                            <select id="recognition-lang-select" style="padding: 8px; border-radius: 6px;">
+                                <option value="en-US">English (US)</option>
+                                <option value="es-ES">Spanish</option>
+                                <option value="fr-FR">French</option>
+                                <option value="de-DE">German</option>
+                                <option value="zh-CN">Chinese</option>
+                                <option value="ja-JP">Japanese</option>
+                                <option value="pt-BR">Portuguese</option>
+                                <option value="hi-IN">Hindi</option>
+                            </select>
+                        </div>
+                        <button id="start-recognition-btn" class="primary-btn">
+                            <i class="fas fa-microphone"></i> Start Listening
+                        </button>
+                        <button id="stop-recognition-btn" class="secondary-btn hidden">
+                            <i class="fas fa-stop"></i> Stop Listening
+                        </button>
+
+                        <div class="file-upload-wrapper">
+                            <input type="file" id="audio-file-input" accept="audio/*" class="hidden-input">
+                            <label for="audio-file-input" class="secondary-btn" id="upload-audio-btn">
+                                <i class="fas fa-upload"></i> Upload Audio
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="recording-visualizer" class="hidden">
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                        <div class="wave"></div>
+                    </div>
+
+                    <div class="transcription-container">
+                        <textarea id="transcription-text" placeholder="Your notes will appear here..." rows="10"></textarea>
+                    </div>
+
+                    <div class="action-buttons">
+                        <button id="analyze-btn" class="primary-btn">Analyze</button>
                     </div>
                 </div>
 
-                <div id="preview-ui" class="hidden">
-                    <h2>Recording Complete</h2>
-                    <p>Listen to your recording below or process it to extract tasks.</p>
-                    <audio id="audio-preview" controls></audio>
-                    <div class="button-group">
-                        <button id="process-btn" class="primary-btn">Process</button>
-                        <button id="discard-btn" class="secondary-btn">Discard</button>
+                <div id="analysis-result" class="hidden">
+                    <div class="analysis-header">
+                        <h2>Analysis Result</h2>
+                        <div class="header-actions">
+                            <div class="translate-control">
+                                <select id="translate-lang-select">
+                                    <option value="Spanish">Spanish</option>
+                                    <option value="French">French</option>
+                                    <option value="German">German</option>
+                                    <option value="Portuguese">Portuguese</option>
+                                    <option value="Chinese">Chinese</option>
+                                    <option value="Japanese">Japanese</option>
+                                    <option value="Hindi">Hindi</option>
+                                </select>
+                                <button id="translate-btn" class="secondary-btn small-btn" title="Translate Analysis"><i class="fas fa-language"></i></button>
+                            </div>
+                            <button id="save-note-btn" class="secondary-btn small-btn"><i class="fas fa-save"></i> Save Note</button>
+                        </div>
+                    </div>
+
+                    <div class="analysis-section" id="analysis-meta">
+                        <!-- Title and Summary will be injected here -->
+                        <div class="meta-field">
+                            <label for="analysis-title">Title:</label>
+                            <input type="text" id="analysis-title" placeholder="Note Title">
+                        </div>
+                        <div class="meta-field">
+                            <label for="analysis-summary">Summary:</label>
+                            <div class="input-with-action">
+                                <textarea id="analysis-summary" rows="2" placeholder="Summary..."></textarea>
+                                <button id="tts-summary-btn" class="action-icon-btn" title="Read Aloud"><i class="fas fa-volume-up"></i></button>
+                                <button id="copy-summary-btn" class="action-icon-btn" title="Copy Summary"><i class="fas fa-copy"></i></button>
+                            </div>
+                        </div>
+                        <div class="meta-field">
+                            <label for="analysis-tags">Tags (comma separated):</label>
+                            <input type="text" id="analysis-tags" placeholder="e.g. Work, Meeting, Important">
+                        </div>
+                        <div class="meta-row">
+                            <div class="meta-field half-width">
+                                <label for="analysis-sentiment">Sentiment:</label>
+                                <select id="analysis-sentiment">
+                                    <option value="Neutral">Neutral</option>
+                                    <option value="Positive">Positive</option>
+                                    <option value="Negative">Negative</option>
+                                </select>
+                            </div>
+                            <div class="meta-field half-width">
+                                <label for="analysis-category">Category:</label>
+                                <select id="analysis-category">
+                                    <option value="Other">Other</option>
+                                    <option value="Meeting">Meeting</option>
+                                    <option value="Personal">Personal</option>
+                                    <option value="Work">Work</option>
+                                    <option value="Idea">Idea</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h3>Identified Tasks</h3>
+                        <ul id="new-tasks-list"></ul>
+                        <button id="add-to-tasks-btn" class="secondary-btn hidden">Add to Tasks List</button>
+                    </div>
+
+                    <div class="analysis-section">
+                        <h3>Flow Diagram</h3>
+                        <div class="mermaid" id="mermaid-diagram">
+                            <!-- Mermaid diagram will be rendered here -->
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                <div id="processing-ui" class="hidden">
-                    <h2>Processing...</h2>
-                    <p>Your audio is being uploaded and analyzed. Please wait.</p>
-                    <div class="progress-bar-container">
-                        <div id="progress-bar" style="width: 0%;"></div>
-                        <span id="progress-text">0%</span>
+            <!-- Saved Notes Tab -->
+            <div id="notes-tab" class="tab-content">
+                <div id="note-list-view">
+                    <div class="search-bar">
+                        <input type="text" id="note-search-input" placeholder="Search notes by title or content...">
+                    </div>
+                    <div id="note-list-container">
+                        <!-- Notes will be loaded here -->
+                        <div class="spinner-container">
+                            <div class="spinner"></div>
+                            <p>Loading notes...</p>
+                        </div>
+                    </div>
+                </div>
+                <div id="note-detail-view" class="hidden">
+                    <div class="detail-header">
+                        <button id="back-to-notes-btn" class="secondary-btn small-btn"><i class="fas fa-arrow-left"></i> Back</button>
+                        <div class="detail-actions">
+                            <button id="edit-note-btn" class="primary-btn small-btn"><i class="fas fa-edit"></i> Edit</button>
+                            <button id="export-note-btn" class="secondary-btn small-btn"><i class="fas fa-download"></i> Export</button>
+                            <button id="print-note-btn" class="secondary-btn small-btn"><i class="fas fa-print"></i> Print</button>
+                        </div>
+                    </div>
+                    <div id="note-detail-content">
+                        <!-- Note content will be loaded here -->
+                    </div>
+                    <div id="note-edit-form" class="hidden edit-note-form">
+                        <!-- Edit form injected here -->
                     </div>
                 </div>
             </div>
 
             <!-- Tasks Tab -->
             <div id="tasks-tab" class="tab-content">
+                <div id="task-stats-container" class="task-stats hidden">
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-total">0</span>
+                        <span class="stat-label">Total</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-pending">0</span>
+                        <span class="stat-label">Pending</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-completed">0</span>
+                        <span class="stat-label">Done</span>
+                    </div>
+                    <div class="stat-card">
+                        <span class="stat-value" id="stat-high">0</span>
+                        <span class="stat-label">High Prio</span>
+                    </div>
+                </div>
+
+                <div class="task-filters">
+                    <div class="filter-group">
+                        <label>
+                            Status:
+                            <select id="filter-status">
+                                <option value="all">All</option>
+                                <option value="active">Active</option>
+                                <option value="done">Completed</option>
+                            </select>
+                        </label>
+                        <label>
+                            Priority:
+                            <select id="filter-priority">
+                                <option value="all">All</option>
+                                <option value="High">High</option>
+                                <option value="Medium">Medium</option>
+                                <option value="Low">Low</option>
+                            </select>
+                        </label>
+                        <label>
+                            Sort:
+                            <select id="sort-tasks">
+                                <option value="date-desc">Date (Newest)</option>
+                                <option value="date-asc">Date (Oldest)</option>
+                                <option value="priority">Priority</option>
+                            </select>
+                        </label>
+                    </div>
+                    <button id="export-tasks-btn" class="secondary-btn small-btn"><i class="fas fa-file-csv"></i> Export CSV</button>
+                </div>
                 <div id="task-list-container">
                     <!-- Tasks will be loaded here -->
-                    <p id="loading-tasks">Loading tasks...</p>
+                    <div class="spinner-container">
+                        <div class="spinner"></div>
+                        <p>Loading tasks...</p>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Knowledge Base Tab -->
+            <div id="kb-tab" class="tab-content">
+                <div class="kb-header">
+                    <h2>Knowledge Base</h2>
+                    <p class="kb-subtitle">Organized repository of your analyzed conversations.</p>
+                </div>
+                <div id="kb-container">
+                    <div class="spinner-container">
+                        <div class="spinner"></div>
+                        <p>Loading knowledge base...</p>
+                    </div>
+                </div>
+                <!-- Reuse Note Detail View (Shared or Cloned? Let's use a read-only modal or reuse view logic) -->
             </div>
         </main>
     </div>
 
+    <!-- Toast Container -->
+    <div id="toast-container"></div>
+
+    <!-- Modal Container -->
+    <div id="modal-container" class="hidden"></div>
+
     <script src="main.js"></script>
+    <script>
+        mermaid.initialize({ startOnLoad: false });
+    </script>
 </body>
 </html>
